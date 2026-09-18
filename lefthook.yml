@@ -1,0 +1,16 @@
+# Lefthook — git hooks config
+# Everyone gets these hooks automatically after `pnpm install`
+# Docs: https://github.com/evilmartians/lefthook
+
+pre-commit:
+  parallel: true
+  commands:
+    biome-check:
+      glob: "*.{ts,js}"
+      run: pnpm exec biome check --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm typecheck

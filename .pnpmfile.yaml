@@ -1,0 +1,3 @@
+allowBuilds:
+  - lefthook
+  - "@biomejs/biome"

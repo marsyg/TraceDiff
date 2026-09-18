@@ -1,0 +1,45 @@
+{
+  "name": "tracediff",
+  "version": "0.1.0",
+  "description": "Structural diffing of execution traces with Merkle-indexed divergence localization",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run src/cli/main.ts",
+    "test": "bun test",
+    "bench": "bun run src/bench/run.ts",
+    "build": "bun build src/lambda/submit-job.ts src/lambda/get-job.ts src/lambda/diff-worker.ts --target=node --outdir=dist/lambda",
+    "lint": "biome lint --no-errors-on-unmatched ./src ./test",
+    "lint:fix": "biome lint --write --no-errors-on-unmatched ./src ./test",
+    "format": "biome format --write --no-errors-on-unmatched ./src ./test",
+    "format:check": "biome format --no-errors-on-unmatched ./src ./test",
+    "check": "biome check --no-errors-on-unmatched ./src ./test",
+    "typecheck": "tsc --noEmit",
+    "hooks:install": "bun run scripts/install-hooks.ts"
+  },
+  "keywords": [
+    "trace",
+    "diff",
+    "merkle",
+    "observability",
+    "opentelemetry"
+  ],
+  "author": "Maaz Ahmad, Lavanya Varshney, Divyansh Gupta",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.22.0",
+      "onFail": "download"
+    }
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@types/node": "^26.6.1",
+    "bun-types": "^1.4.2",
+    "typescript": "^7.0.2"
+  }
+}

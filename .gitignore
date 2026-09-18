@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Build output — always rebuilt via pnpm build
+dist/
+
+# Generated fixtures (large, gitignored to keep repo lean)
+fixtures/demo/
+fixtures/large/
+
+# Benchmark output
+bench-results.csv
+
+# AWS SAM build artifacts
+.aws-sam/
+samconfig.toml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Bun
+bun.lockb
+
+# Logs
+*.log
