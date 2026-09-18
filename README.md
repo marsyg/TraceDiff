@@ -1,11 +1,6 @@
 # TraceDiff
 
 > Structural diffing of execution traces — find which differences are **bugs** and which are **noise**, in O(N + D·log N) instead of O(N²m²).
-
-**WeMakeDevs "First Commit" Hackathon · Bharat Builds Tour · Sept 17–20, 2026**  
-Team: Lavanya Varshney · Divyansh Gupta · Maaz Ahmad  
-Track: **Ship It** (deployed on AWS)
-
 ---
 
 ## What It Does
