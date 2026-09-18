@@ -1,0 +1,25 @@
+{
+  "generator": {
+    "size": 3,
+    "diffs": 1,
+    "seed": 42,
+    "generatedAt": "2026-09-18T14:36:54.434Z"
+  },
+  "summary": {
+    "totalNodesTraceA": 3,
+    "totalNodesTraceB": 3,
+    "semanticDiffsCount": 1,
+    "noiseDiffsCount": 7
+  },
+  "semantic": [
+    {
+      "type": "modified",
+      "path": "POST /api/v1/checkout/payment_process",
+      "nodeId": "span-payment-00002",
+      "field": "http.status_code",
+      "before": 200,
+      "after": 500,
+      "details": "HTTP status code changed from 200 to 500"
+    }
+  ]
+}

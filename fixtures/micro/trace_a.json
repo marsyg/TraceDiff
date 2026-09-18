@@ -1,0 +1,41 @@
+{
+  "id": "req-root-00001",
+  "type": "span",
+  "label": "POST /api/v1/checkout",
+  "attributes": {
+    "http.method": "POST",
+    "http.route": "/api/v1/checkout",
+    "http.status_code": 200,
+    "user.id": "user_6409",
+    "request_id": "7da2849d-73eb-438a-907d-090402c802d7",
+    "timestamp": 1773820000000,
+    "duration_ms": 262
+  },
+  "children": [
+    {
+      "id": "span-payment-00002",
+      "type": "span",
+      "label": "payment_process",
+      "attributes": {
+        "payment.provider": "stripe",
+        "payment.amount_cents": 56102,
+        "payment.currency": "usd",
+        "duration_ms": 124,
+        "timestamp": 1773820000021
+      },
+      "children": []
+    },
+    {
+      "id": "parallel-worker-00003",
+      "type": "parallel",
+      "label": "parallel_batch_dispatch",
+      "attributes": {
+        "batch_id": "batch_4bd83441",
+        "concurrency": 4,
+        "duration_ms": 68,
+        "timestamp": 1773820000034
+      },
+      "children": []
+    }
+  ]
+}
