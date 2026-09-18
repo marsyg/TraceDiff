@@ -1,0 +1,56 @@
+{
+  "id": "gateway-root-100",
+  "type": "span",
+  "label": "GET /api/v1/dashboard",
+  "attributes": {
+    "http.method": "GET",
+    "http.status_code": 200,
+    "timestamp": 1773820000002
+  },
+  "children": [
+    {
+      "id": "task-notif-104",
+      "type": "span",
+      "label": "fetch_unread_notifications",
+      "attributes": {
+        "count": 3,
+        "duration_ms": 7,
+        "timestamp": 1773820000004
+      },
+      "children": []
+    },
+    {
+      "id": "task-user-101",
+      "type": "span",
+      "label": "fetch_user_profile",
+      "attributes": {
+        "user_id": "usr_9988",
+        "duration_ms": 11,
+        "timestamp": 1773820000005
+      },
+      "children": []
+    },
+    {
+      "id": "task-cart-102",
+      "type": "span",
+      "label": "fetch_cart_items",
+      "attributes": {
+        "cart_id": "cart_1122",
+        "duration_ms": 19,
+        "timestamp": 1773820000007
+      },
+      "children": []
+    },
+    {
+      "id": "task-rec-103",
+      "type": "span",
+      "label": "fetch_recommendations",
+      "attributes": {
+        "model_version": "rec_v4",
+        "duration_ms": 24,
+        "timestamp": 1773820000009
+      },
+      "children": []
+    }
+  ]
+}

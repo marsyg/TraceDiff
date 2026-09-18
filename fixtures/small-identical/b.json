@@ -1,0 +1,108 @@
+{
+  "id": "req-root-001",
+  "type": "span",
+  "label": "POST /api/v1/checkout",
+  "attributes": {
+    "http.method": "POST",
+    "http.route": "/api/v1/checkout",
+    "http.status_code": 200,
+    "user.id": "user_4812"
+  },
+  "children": [
+    {
+      "id": "span-auth-002",
+      "type": "span",
+      "label": "authenticate_request",
+      "attributes": {
+        "auth.mechanism": "bearer_jwt",
+        "auth.valid": true
+      },
+      "children": [
+        {
+          "id": "call-jwt-003",
+          "type": "call",
+          "label": "jwt_verify_signature",
+          "attributes": {
+            "algorithm": "RS256",
+            "key_id": "key_prod_auth_2026"
+          },
+          "children": []
+        },
+        {
+          "id": "call-rbac-004",
+          "type": "call",
+          "label": "rbac_policy_eval",
+          "attributes": {
+            "required_role": "shopper",
+            "has_role": true
+          },
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "span-inv-005",
+      "type": "span",
+      "label": "inventory_reservation",
+      "attributes": {
+        "sku": "SKU-9924-M",
+        "quantity": 1,
+        "reserved": true
+      },
+      "children": [
+        {
+          "id": "call-db-006",
+          "type": "call",
+          "label": "pg_lock_stock_row",
+          "attributes": {
+            "query": "SELECT stock FROM inventory WHERE sku = $1 FOR UPDATE",
+            "rows_affected": 1
+          },
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "span-pay-007",
+      "type": "span",
+      "label": "payment_process",
+      "attributes": {
+        "payment.provider": "stripe",
+        "payment.amount_cents": 4999,
+        "payment.currency": "usd"
+      },
+      "children": [
+        {
+          "id": "call-stripe-008",
+          "type": "call",
+          "label": "stripe_charge_create",
+          "attributes": {
+            "http.status_code": 200,
+            "charge.id": "ch_3Nabc123"
+          },
+          "children": []
+        },
+        {
+          "id": "log-audit-009",
+          "type": "log",
+          "label": "audit_record_written",
+          "attributes": {
+            "level": "INFO",
+            "message": "Payment captured successfully for user_4812"
+          },
+          "children": []
+        }
+      ]
+    },
+    {
+      "id": "state-event-010",
+      "type": "state_change",
+      "label": "order_state_transition",
+      "attributes": {
+        "from_state": "PENDING",
+        "to_state": "CONFIRMED"
+      },
+      "children": []
+    }
+  ]
+}

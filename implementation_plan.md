@@ -252,42 +252,56 @@ interface TraceDiffConfig {
 **Goal:** Runnable skeleton, everyone can start in parallel.
 
 **Tasks:**
-- [ ] Init with pnpm + Bun:
+- [x] Init with pnpm + install dev deps:
   ```bash
-  pnpm init
-  # Add Bun types and TypeScript; NO tsx, NO vitest
-  pnpm add -D typescript @types/node bun-types
+  pnpm add -D typescript @types/node bun-types @biomejs/biome
   ```
-- [ ] `tsconfig.json`:
+- [x] `tsconfig.json`:
   ```json
-  { "compilerOptions": { "strict": true, "module": "Bundler",
-    "moduleResolution": "Bundler", "target": "ES2022",
-    "types": ["bun-types"] } }
+  {
+    "compilerOptions": {
+      "strict": true,
+      "module": "esnext",
+      "moduleResolution": "bundler",
+      "target": "es2022",
+      "types": ["bun-types"]
+    }
+  }
   ```
-  > `module: "Bundler"` is correct for Bun — do NOT use `NodeNext` (causes `.js` extension errors with Bun's resolver)
-- [ ] `bunfig.toml`:
+  > `module: "esnext"` + `moduleResolution: "bundler"` is what Bun expects. Do NOT use `NodeNext` (causes `.js` extension errors with Bun's resolver).
+- [x] `bunfig.toml`:
   ```toml
   [test]
   preload = []
   coverage = true
   ```
-- [ ] `package.json` scripts:
+- [x] `biome.json` configured for linting & formatting (Biome 2.5.14, preset:recommended, 2-space, LF, 100 max width)
+- [x] `.editorconfig` (consistent LF line endings and 2-space indentation)
+- [x] Zero-dependency git hooks installer `scripts/install-hooks.ts` created (`bun run hooks:install` installs `pre-commit` for biome and `pre-push` for typecheck)
+- [x] `package.json` scripts:
   ```json
   {
     "scripts": {
-      "dev":   "bun run src/cli/main.ts",
-      "test":  "bun test",
+      "dev": "bun run src/cli/main.ts",
+      "test": "bun test",
       "bench": "bun run src/bench/run.ts",
-      "build": "bun build src/lambda/submit-job.ts src/lambda/get-job.ts src/lambda/diff-worker.ts --target=node --outdir=dist/lambda"
+      "build": "bun build src/lambda/submit-job.ts src/lambda/get-job.ts src/lambda/diff-worker.ts --target=node --outdir=dist/lambda",
+      "lint": "biome lint --no-errors-on-unmatched ./src ./test",
+      "lint:fix": "biome lint --write --no-errors-on-unmatched ./src ./test",
+      "format": "biome format --write --no-errors-on-unmatched ./src ./test",
+      "format:check": "biome format --no-errors-on-unmatched ./src ./test",
+      "check": "biome check --no-errors-on-unmatched ./src ./test",
+      "typecheck": "tsc --noEmit",
+      "hooks:install": "bun run scripts/install-hooks.ts"
     }
   }
   ```
-- [ ] Runtime deps: **zero** (AWS SDK v3 only in Lambda handlers — pnpm add it inside `src/lambda/` or as optional dep)
-- [ ] Create directory skeleton (all dirs, empty `.gitkeep`)
-- [ ] `fixtures/` — place 2 hand-crafted small JSON traces (10 nodes each)
-- [ ] Smoke test: `bun run src/core/types.ts` — should print nothing and exit 0
+- [x] Initial commit f00e9da pushed to GitHub (`marsyg/TraceDiff` main branch)
+- [x] Create directory skeleton (all dirs, empty `.gitkeep`)
+- [x] `fixtures/` — place 2 hand-crafted small JSON traces (10 nodes each) + medium/otel samples
+- [x] Smoke test: `bun test` runs cleanly (0 tests, 0 failures), `bun run check` passes
 
-**Output:** `pnpm test` (alias for `bun test`) runs (0 tests, 0 failures), `pnpm build` produces `dist/lambda/*.js`.
+**Output:** `bun test` runs (0 tests, 0 failures). `bun run check` passes. Directory skeleton and test fixtures ready for parallel feature development.
 
 ---
 
@@ -1010,7 +1024,7 @@ bun run src/cli/main.ts trace_a.json trace_b.json --stats
 
 | Phase | Duration | Owner | Deadline (IST) | Status |
 |-------|----------|-------|----------------|--------|
-| 0 — Bootstrap | 30 min | Any | Sept 18, 07:00 | ⬜ |
+| 0 — Bootstrap | 30 min | Any | Sept 18, 07:00 | ✅ |
 | 1A — Hash + Serializer | 45 min | Maaz | Sept 18, 08:00 | ⬜ |
 | 1B — Rules | 1.5h | Divyansh | Sept 18, 10:00 | ⬜ |
 | 1C — Merkle Builder | 1.5h | Maaz | Sept 18, 12:00 | ⬜ |
