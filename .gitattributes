@@ -1,0 +1,4 @@
+# Enforce LF everywhere: biome (`lineEnding: lf`) and .editorconfig agree on it.
+# Without this, core.autocrlf=true rewrites working copies to CRLF and every
+# `biome check` fails on line endings.
+* text=auto eol=lf

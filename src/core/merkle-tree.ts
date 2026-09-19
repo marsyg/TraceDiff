@@ -14,16 +14,30 @@ export function buildMerkleTree(node: TraceNode, rules: EquivalenceRule[]): Merk
   // array by reference, but iterate from `node` explicitly so that stays
   // true even if a future rule (e.g. a "collapse retries" rule) starts
   // adding/removing/reordering children in normalize().
-  let childNodes = node.children.map((child) => buildMerkleTree(child, rules));
+  //
+  // Single pass: recurse, accumulate subTreeSize, no intermediate arrays.
+  const rawChildren = node.children;
+  const childNodes: MerkleNode[] = new Array(rawChildren.length);
+  let subTreeSize = 1;
+  for (let i = 0; i < rawChildren.length; i++) {
+    const child = buildMerkleTree(rawChildren[i], rules);
+    childNodes[i] = child;
+    subTreeSize += child.subTreeSize;
+  }
 
   if (shouldSortChildren(normalized, rules)) {
     // Sort ONCE, then use this same order for both hash computations below.
     // Sorting raw and normalized children independently would let the two
     // hashes drift out of sync with each other for reasons that have
     // nothing to do with an actual diff.
-    childNodes = [...childNodes].sort((a, b) => {
-      const byLabel = a.trace.label.localeCompare(b.trace.label);
-      return byLabel !== 0 ? byLabel : a.trace.id.localeCompare(b.trace.id);
+    //
+    // Codepoint (not locale) comparison: deterministic on both sides so
+    // verdicts are unchanged, and far cheaper than ICU collation. Hash
+    // VALUES of parallel subtrees differ from localeCompare ordering —
+    // covered by the hash cache version, not by verdict equality.
+    childNodes.sort((a, b) => {
+      const byLabel = compareStrings(a.trace.label, b.trace.label);
+      return byLabel !== 0 ? byLabel : compareStrings(a.trace.id, b.trace.id);
     });
   }
 
@@ -38,18 +52,22 @@ export function buildMerkleTree(node: TraceNode, rules: EquivalenceRule[]): Merk
     attributes: node.attributes,
   });
 
-  const normalizedHash = createHash("sha256")
-    .update(normalizedContent)
-    .update(childNodes.map((c) => c.normalizedHash).join(""))
-    .digest("hex");
-
-  const rawHash = createHash("sha256")
-    .update(rawContent)
-    .update(childNodes.map((c) => c.rawHash).join(""))
-    .digest("hex");
-  const subTreeSize = 1 + childNodes.reduce((n, c) => n + c.subTreeSize, 0);
+  // One pass over children feeds both digests — the previous two
+  // map+join passes allocated an intermediate string array per node.
+  const normalizedHasher = createHash("sha256").update(normalizedContent);
+  const rawHasher = createHash("sha256").update(rawContent);
+  for (const child of childNodes) {
+    normalizedHasher.update(child.normalizedHash);
+    rawHasher.update(child.rawHash);
+  }
+  const normalizedHash = normalizedHasher.digest("hex");
+  const rawHash = rawHasher.digest("hex");
 
   return { normalizedHash, rawHash, trace: node, children: childNodes, subTreeSize };
+}
+
+function compareStrings(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }
 
 export type MatchVerdict = "identical" | "noise" | "diverges";

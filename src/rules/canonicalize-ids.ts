@@ -8,7 +8,7 @@ import type { EquivalenceRule, RawDiff } from "./type.js";
  * accepted "_", which silently missed every namespaced field like
  * "charge.id" and made rotated IDs register as semantic diffs.
  */
-const ID_FIELD_RE = /(^|[._])id$/i;
+export const ID_FIELD_RE = /(^|[._])id$/i;
 
 /**
  * A fixed sentinel. Deliberately NOT a counter.
@@ -22,12 +22,13 @@ const ID_FIELD_RE = /(^|[._])id$/i;
  * A constant token removes the dependency entirely. The rule becomes pure,
  * so the whole "one fresh instance per trace" factory dance is unnecessary.
  */
-const ID_TOKEN = "__TRACEDIFF_ID__";
+export const ID_TOKEN = "__TRACEDIFF_ID__";
 
 export const canonicalizeIdsRule: EquivalenceRule = {
   name: "canonicalize-ids",
   description:
     "Replaces identifier-valued fields with a stable sentinel so rotated IDs are treated as noise",
+  fuse: { kind: "canonicalize-ids" },
 
   normalize(node: TraceNode): TraceNode {
     const attrs = node.attributes;

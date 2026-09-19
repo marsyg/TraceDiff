@@ -55,7 +55,19 @@ export function matchChildren(a: MerkleNode[], b: MerkleNode[]): ChildMatchResul
 
   // Children remaining in hash buckets were not claimed by any identical A child;
   // they represent either modified operations or newly added operations.
-  const unmatchedB = [...byHash.values()].flat();
+  // Fast path: nothing left unmatched on either side — skip the label
+  // bucketing pass (two Map builds + flat()) entirely.
+  if (unmatchedA.length === 0) {
+    const added: MerkleNode[] = [];
+    for (const bucket of byHash.values()) {
+      for (const child of bucket) added.push(child);
+    }
+    return { matched, removed: [], added };
+  }
+  const unmatchedB: MerkleNode[] = [];
+  for (const bucket of byHash.values()) {
+    for (const child of bucket) unmatchedB.push(child);
+  }
 
   // Pass 2: Bucket remaining B children by label to correlate modified operations.
   // When a child's attributes or descendants change, its hash diverges. Matching by
@@ -84,7 +96,10 @@ export function matchChildren(a: MerkleNode[], b: MerkleNode[]): ChildMatchResul
   }
 
   // Any B nodes remaining after label matching are genuine additions in trace B.
-  const added = [...unmatchedBByLabel.values()].flat();
+  const added: MerkleNode[] = [];
+  for (const bucket of unmatchedBByLabel.values()) {
+    for (const child of bucket) added.push(child);
+  }
 
   return { matched, removed, added };
 }
