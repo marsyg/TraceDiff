@@ -121,6 +121,15 @@ describe("CLI — trace diffing execution", () => {
     }
   });
 
+  test("includes Repro-Gen actions in HTML output for semantic diffs", () => {
+    const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--output", "html"]);
+    expect(code).toBe(1);
+    expect(stdout).toContain("Export Repro");
+    expect(stdout).toContain("Copy cURL");
+    expect(stdout).toContain("Copy Vitest Test");
+    expect(stdout).toContain("reproBundles");
+  });
+
   test("supports --no-rules disabling equivalence normalization", () => {
     const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--no-rules", "--output", "json"]);
     expect(code).toBe(1);

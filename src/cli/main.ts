@@ -1,8 +1,9 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { compareTraces } from "../core/compare-traces.js";
 import type { DiffSummary, TraceNode } from "../core/type.js";
 import { autoDetect, parseFlatSpans, parseJsonTree, parseOtel } from "../parsers/index.js";
+import { exportReproBundle } from "../repro/generator.js";
 import { buildRuleSet, type RuleSetOptions } from "../rules/registry.js";
 import { AVAILABLE_RULES, getHelpText, getRulesText, parseCliArgs, VERSION } from "./args.js";
 import { formatHtml } from "./format-html.js";
@@ -129,6 +130,27 @@ export function run(argv: string[] = process.argv.slice(2)): number {
     }
   }
 
+  // ── Optional Repro-Gen export ──────────────────────────────────────────────
+  const reproPaths: string[] = [];
+  if (args.exportReproDir) {
+    try {
+      mkdirSync(args.exportReproDir, { recursive: true });
+      summary.semantic.forEach((diff, idx) => {
+        const n = idx + 1;
+        const bundle = exportReproBundle(diff);
+        const shPath   = `${args.exportReproDir}/repro-diff-${n}.sh`;
+        const testPath = `${args.exportReproDir}/repro-diff-${n}.test.ts`;
+        writeFileSync(shPath,   `#!/usr/bin/env bash\n${bundle.curl}\n`, "utf8");
+        writeFileSync(testPath, bundle.vitestFile, "utf8");
+        reproPaths.push(shPath, testPath);
+      });
+    } catch (err: unknown) {
+      return fail(
+        `Failed to write repro files to "${args.exportReproDir}": ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
+
   // ── Render output ──────────────────────────────────────────────────────────
   if (!args.quiet) {
     if (args.output === "json") {
@@ -152,6 +174,14 @@ export function run(argv: string[] = process.argv.slice(2)): number {
           noColor: args.noColor,
         })}\n`,
       );
+    }
+
+    // Print repro file paths in the summary when --export-repro was used.
+    if (reproPaths.length > 0) {
+      process.stdout.write(`\n  ⚡ Repro-Gen: ${reproPaths.length / 2} bundle(s) written to ${args.exportReproDir}\n`);
+      for (const p of reproPaths) {
+        process.stdout.write(`     ${p}\n`);
+      }
     }
   }
 
