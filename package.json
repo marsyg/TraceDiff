@@ -8,7 +8,7 @@
     "dev": "bun run src/cli/main.ts",
     "test": "bun test",
     "bench": "bun run src/bench/run.ts",
-    "build": "bun build src/lambda/submit-job.ts src/lambda/get-job.ts src/lambda/diff-worker.ts src/lambda/presign.ts src/lambda/load-traces.ts src/lambda/aggregate.ts src/lambda/update-status.ts --target=node --outdir=dist/lambda",
+    "build": "bun build src/lambda/submit-job.ts src/lambda/get-job.ts src/lambda/diff-worker.ts src/lambda/presign.ts src/lambda/load-traces.ts src/lambda/aggregate.ts src/lambda/update-status.ts --target=node --outdir=dist/lambda && bun -e \"require('node:fs').writeFileSync('dist/lambda/package.json', '{\\\"name\\\":\\\"tracediff-lambda\\\",\\\"version\\\":\\\"1.0.0\\\",\\\"type\\\":\\\"module\\\"}')\"",
     "lint": "biome lint --no-errors-on-unmatched ./src ./test",
     "lint:fix": "biome lint --write --no-errors-on-unmatched ./src ./test",
     "format": "biome format --write --no-errors-on-unmatched ./src ./test",
