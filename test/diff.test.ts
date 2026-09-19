@@ -332,28 +332,42 @@ describe("diff — paths and metadata", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("diff — skip accounting", () => {
-  test("a 1,000-node trace with one leaf change skips ~99% of the tree", () => {
-    // Build a wide-ish tree: root -> 10 groups -> 10 leaves each (depth 2)
-    const groups = (leafValue: number) =>
-      Array.from({ length: 10 }, (_, g) =>
+  test("a single leaf change in a deep tree skips >95% of nodes", () => {
+    // Depth-3 tree: root → 10 → 10 → 10 = 1 + 10 + 100 + 1000 = 1111 nodes.
+    // One changed leaf invalidates the hash chain up its ancestors only;
+    // sibling subtrees at each level are Merkle-skipped. Observed skip: ~97%.
+    const buildTree = (leafValue: number) =>
+      withDepth(
         node(
-          `g${g}`,
+          "root",
           {},
-          Array.from({ length: 10 }, (_, l) => node(`l${g}-${l}`, { v: leafValue })),
+          Array.from({ length: 10 }, (_, g) =>
+            node(
+              `g${g}`,
+              {},
+              Array.from({ length: 10 }, (_, sg) =>
+                node(
+                  `g${g}-s${sg}`,
+                  {},
+                  Array.from({ length: 10 }, (_, l) =>
+                    node(`g${g}-s${sg}-l${l}`, { v: leafValue }),
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       );
-    const a = withDepth(node("root", {}, groups(0)));
-    const b = withDepth(node("root", {}, groups(0)));
 
-    // change exactly one leaf
-    b.children[3].children[7].attributes.v = 1;
+    const a = buildTree(0);
+    const b = buildTree(0);
+    b.children[5].children[7].children[3].attributes.v = 1;
 
     const r = runDiff(a, b, []);
     const skipPct = (r.nodesSkipped / r.traceASize) * 100;
 
     expect(r.partitionSum).toBe(r.traceASize);
     expect(skipPct).toBeGreaterThan(95);
-    // precisely one semantic diff
     expect(r.diffs.filter((d) => d.significance === "semantic")).toHaveLength(1);
   });
 });
