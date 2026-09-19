@@ -1,0 +1,320 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: TraceDiff - Structural diffing of execution traces with Merkle-indexed divergence localization
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - prod
+    Description: Deployment stage environment
+
+  CorsOrigin:
+    Type: String
+    Default: "*"
+    Description: Allowed origin for API Gateway and S3 CORS (e.g. Amplify domain or *)
+
+  RetentionDays:
+    Type: Number
+    Default: 14
+    Description: Days to retain raw trace files in S3 before expiration
+
+Globals:
+  Function:
+    Runtime: nodejs22.x
+    Architectures:
+      - x86_64
+    Timeout: 30
+    MemorySize: 512
+    Environment:
+      Variables:
+        JOBS_TABLE_NAME: !Ref JobsTable
+        RESULTS_TABLE_NAME: !Ref ResultsTable
+        TRACES_BUCKET_NAME: !Ref TracesBucket
+        CORS_ORIGIN: !Ref CorsOrigin
+
+Resources:
+  # ============================================================================
+  # S3 Storage: Trace Uploads & Merkle Cache
+  # ============================================================================
+  TracesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub tracediff-uploads-${AWS::AccountId}-${Environment}
+      CorsConfiguration:
+        CorsRules:
+          - AllowedHeaders:
+              - "*"
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - HEAD
+            AllowedOrigins:
+              - !Ref CorsOrigin
+            MaxAge: 3600
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireOldTraces
+            Status: Enabled
+            ExpirationInDays: !Ref RetentionDays
+
+  # ============================================================================
+  # DynamoDB: Job Status & Diff Divergence Results
+  # ============================================================================
+  JobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub tracediff-jobs-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: jobId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: jobId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ResultsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub tracediff-results-${Environment}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: jobId
+          AttributeType: S
+        - AttributeName: diffIndex
+          AttributeType: N
+      KeySchema:
+        - AttributeName: jobId
+          KeyType: HASH
+        - AttributeName: diffIndex
+          KeyType: RANGE
+
+  # ============================================================================
+  # API Gateway: REST API
+  # ============================================================================
+  TraceDiffApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,OPTIONS'"
+        AllowHeaders: "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: !Sub "'${CorsOrigin}'"
+
+  # ============================================================================
+  # Lambda Functions: API Handlers
+  # ============================================================================
+  PresignFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/lambda/
+      Handler: presign.handler
+      Description: Generate S3 presigned PUT URLs for direct large trace uploads
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Sub tracediff-uploads-${AWS::AccountId}-${Environment}
+      Events:
+        PresignApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TraceDiffApi
+            Path: /presign
+            Method: GET
+
+  SubmitJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/lambda/
+      Handler: submit-job.handler
+      Description: Receive job request, persist PENDING state, and start Step Functions execution
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref DiffStateMachine
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+        - StepFunctionsExecutionPolicy:
+            StateMachineName: !GetAtt DiffStateMachine.Name
+      Events:
+        SubmitJobApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TraceDiffApi
+            Path: /jobs
+            Method: POST
+
+  GetJobFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/lambda/
+      Handler: get-job.handler
+      Description: Fetch job status, summary, and paginated diff results
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref JobsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref ResultsTable
+      Events:
+        GetJobApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TraceDiffApi
+            Path: /jobs/{id}
+            Method: GET
+        GetJobResultsApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref TraceDiffApi
+            Path: /jobs/{id}/results
+            Method: GET
+
+  # ============================================================================
+  # Lambda Functions: Step Functions Tasks
+  # ============================================================================
+  LoadTracesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/lambda/
+      Handler: load-traces.handler
+      Description: Validate trace assets in S3, update job status to RUNNING, and prepare chunk items
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub tracediff-uploads-${AWS::AccountId}-${Environment}
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  DiffWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/lambda/
+      Handler: diff-worker.handler
+      Description: Execute Merkle tree builder and diff engine on traces; batch write results
+      MemorySize: 3008
+      Timeout: 900
+      Policies:
+        - S3ReadPolicy:
+            BucketName: !Sub tracediff-uploads-${AWS::AccountId}-${Environment}
+        - DynamoDBCrudPolicy:
+            TableName: !Ref ResultsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  AggregateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/lambda/
+      Handler: aggregate.handler
+      Description: Aggregate chunk diff metrics into complete execution summary
+
+  UpdateStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../dist/lambda/
+      Handler: update-status.handler
+      Description: Finalize job state in DynamoDB (COMPLETED or FAILED)
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref JobsTable
+
+  # ============================================================================
+  # Step Functions State Machine: Diff Pipeline
+  # ============================================================================
+  DiffStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      DefinitionSubstitutions:
+        LoadTracesArn: !GetAtt LoadTracesFunction.Arn
+        DiffWorkerArn: !GetAtt DiffWorkerFunction.Arn
+        AggregateArn: !GetAtt AggregateFunction.Arn
+        UpdateStatusArn: !GetAtt UpdateStatusFunction.Arn
+      Policies:
+        - LambdaInvokePolicy:
+            FunctionName: !Ref LoadTracesFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref DiffWorkerFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref AggregateFunction
+        - LambdaInvokePolicy:
+            FunctionName: !Ref UpdateStatusFunction
+      Definition:
+        StartAt: LoadTraces
+        States:
+          LoadTraces:
+            Type: Task
+            Resource: "${LoadTracesArn}"
+            Catch:
+              - ErrorEquals:
+                  - States.ALL
+                ResultPath: "$.error"
+                Next: JobFailed
+            Next: MapDiff
+
+          MapDiff:
+            Type: Map
+            ItemsPath: "$.chunks"
+            MaxConcurrency: 10
+            Iterator:
+              StartAt: DiffChunk
+              States:
+                DiffChunk:
+                  Type: Task
+                  Resource: "${DiffWorkerArn}"
+                  End: true
+            ResultPath: "$.workerResults"
+            Catch:
+              - ErrorEquals:
+                  - States.ALL
+                ResultPath: "$.error"
+                Next: JobFailed
+            Next: AggregateResults
+
+          AggregateResults:
+            Type: Task
+            Resource: "${AggregateArn}"
+            Catch:
+              - ErrorEquals:
+                  - States.ALL
+                ResultPath: "$.error"
+                Next: JobFailed
+            Next: UpdateJobStatus
+
+          UpdateJobStatus:
+            Type: Task
+            Resource: "${UpdateStatusArn}"
+            End: true
+
+          JobFailed:
+            Type: Task
+            Resource: "${UpdateStatusArn}"
+            End: true
+
+# ==============================================================================
+# Outputs
+# ==============================================================================
+Outputs:
+  ApiEndpoint:
+    Description: Base API Gateway execution endpoint URL
+    Value: !Sub "https://${TraceDiffApi}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/"
+
+  TracesBucketName:
+    Description: Name of the S3 bucket for uploads and cache
+    Value: !Ref TracesBucket
+
+  JobsTableName:
+    Description: DynamoDB table name for job state
+    Value: !Ref JobsTable
+
+  ResultsTableName:
+    Description: DynamoDB table name for diff divergence records
+    Value: !Ref ResultsTable
+
+  StateMachineArn:
+    Description: ARN of the Step Functions Merkle diff state machine
+    Value: !Ref DiffStateMachine
