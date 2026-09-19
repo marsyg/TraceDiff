@@ -21,6 +21,7 @@ const KNOWN_FLAGS = [
   "--stats",
   "--html-out",
   "--include-noise",
+  "--export-repro",
   "--list-rules",
   "--no-color",
   "--quiet",
@@ -40,6 +41,8 @@ export interface CliArgs {
   maxDepth: number;
   stats: boolean;
   htmlOut?: string;
+  /** Output directory for --export-repro. When set, write repro-diff-N.sh and repro-diff-N.test.ts files. */
+  exportReproDir?: string;
   quiet: boolean;
   includeNoise: boolean;
   listRules: boolean;
@@ -215,6 +218,14 @@ export function parseCliArgs(argv: string[]): CliArgs {
       continue;
     }
 
+    if (arg.startsWith("--export-repro=") || arg === "--export-repro") {
+      const val = arg.startsWith("--export-repro=") ? arg.slice("--export-repro=".length) : argv[++i];
+      if (!val)
+        throw new Error("Missing directory for --export-repro. Example: --export-repro ./repro-out");
+      result.exportReproDir = val;
+      continue;
+    }
+
     if (arg.startsWith("-")) {
       const hint = suggestFlag(arg);
       throw new Error(
@@ -311,6 +322,7 @@ Output:
   -s, --stats             Show timing + Merkle skip statistics
       --include-noise     Also show noise-level diffs (hidden by default)
       --html-out <path>   Also write a shareable HTML report to file
+      --export-repro <dir> Write repro-diff-N.sh (cURL) and repro-diff-N.test.ts (Vitest) for each semantic diff
   -q, --quiet             Print nothing, exit code only
       --no-color          Disable ANSI colors (also respects NO_COLOR=1)
 

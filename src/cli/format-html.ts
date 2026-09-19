@@ -1,4 +1,5 @@
 import type { DiffSummary } from "../core/type.js";
+import { exportReproBundle } from "../repro/generator.js";
 
 export interface HtmlFormatOptions {
   fileA: string;
@@ -15,6 +16,7 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
 
   const comparedPct = ((summary.nodesVisited / (summary.traceASize || 1)) * 100).toFixed(1);
   const skipPct = summary.skipPercentage.toFixed(1);
+  const reproBundles = summary.semantic.map((diff) => exportReproBundle(diff));
 
   const diffItemsHtml = summary.diffs
     .map((d, index) => {
@@ -44,6 +46,7 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
           ${typeBadge}
           <span class="badge ${badgeClass}">${d.significance.toUpperCase()}</span>
           <span class="diff-path">${escapeHtml(pathStr)}</span>
+          ${d.significance === "semantic" ? `<button class="repro-btn" onclick="openRepro(${summary.semantic.indexOf(d)})" title="Export reproduction">Export Repro</button>` : ""}
         </div>
         <div class="diff-body">
           <p class="diff-desc">${escapeHtml(d.description)}</p>
@@ -146,6 +149,17 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
       margin-bottom: 0.5rem;
       flex-wrap: wrap;
     }
+    .repro-btn {
+      margin-left: auto;
+      background: var(--semantic-bg);
+      border: 1px solid var(--semantic);
+      border-radius: 6px;
+      color: var(--semantic);
+      cursor: pointer;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.65rem;
+    }
+    .repro-btn:hover { background: rgba(248, 81, 73, 0.25); }
     .diff-number { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
     .diff-path { color: #79c0ff; font-weight: 600; font-size: 0.95rem; }
     .diff-body { margin-top: 0.5rem; }
@@ -179,6 +193,27 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
     details { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
     summary { cursor: pointer; color: var(--text); font-weight: 600; }
     pre.raw-json { margin-top: 0.75rem; padding: 1rem; background: #0d1117; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; color: #8b949e; }
+    .repro-drawer {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: none;
+      margin-bottom: 1.5rem;
+      padding: 1rem;
+    }
+    .repro-drawer.open { display: block; }
+    .repro-toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .repro-toolbar button {
+      background: #21262d;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      cursor: pointer;
+      padding: 0.4rem 0.7rem;
+    }
+    .repro-toolbar button.active { border-color: #79c0ff; color: #79c0ff; }
+    .repro-code { background: #0d1117; border-radius: 6px; margin: 0; min-height: 8rem; overflow-x: auto; padding: 1rem; white-space: pre-wrap; }
+    .copy-status { color: var(--green); font-size: 0.85rem; margin-left: auto; }
   </style>
 </head>
 <body>
@@ -222,6 +257,17 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
       <button class="filter-btn" onclick="filterDiffs('noise', this)">Noise (${summary.noise.length})</button>
     </div>
 
+    <section class="repro-drawer" id="reproDrawer" aria-label="Reproduction code">
+      <div class="repro-toolbar">
+        <button id="curlTab" class="active" onclick="selectReproTab('curl')">cURL</button>
+        <button id="vitestTab" onclick="selectReproTab('vitest')">Vitest Test</button>
+        <button onclick="copyRepro('curl')">Copy cURL</button>
+        <button onclick="copyRepro('vitest')">Copy Vitest Test</button>
+        <span class="copy-status" id="copyStatus" aria-live="polite"></span>
+      </div>
+      <pre class="repro-code" id="reproCode"></pre>
+    </section>
+
     <div class="diff-list" id="diffList">
       ${diffItemsHtml || '<p style="text-align:center; padding: 2rem; color: var(--text-muted);">No differences found — traces are equivalent.</p>'}
     </div>
@@ -235,6 +281,38 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
   </div>
 
   <script>
+    const reproBundles = ${JSON.stringify(reproBundles).replace(/</g, "\\u003c")};
+    let selectedRepro = null;
+    let selectedReproTab = 'curl';
+
+    function openRepro(index) {
+      selectedRepro = reproBundles[index];
+      selectedReproTab = 'curl';
+      document.getElementById('reproDrawer').classList.add('open');
+      selectReproTab('curl');
+      document.getElementById('reproDrawer').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function selectReproTab(tab) {
+      if (!selectedRepro) return;
+      selectedReproTab = tab;
+      document.getElementById('curlTab').classList.toggle('active', tab === 'curl');
+      document.getElementById('vitestTab').classList.toggle('active', tab === 'vitest');
+      document.getElementById('reproCode').textContent = selectedRepro[tab === 'curl' ? 'curl' : 'vitestFile'];
+      document.getElementById('copyStatus').textContent = '';
+    }
+
+    async function copyRepro(tab) {
+      if (!selectedRepro) return;
+      const text = selectedRepro[tab === 'curl' ? 'curl' : 'vitestFile'];
+      try {
+        await navigator.clipboard.writeText(text);
+        document.getElementById('copyStatus').textContent = 'Copied';
+      } catch {
+        document.getElementById('copyStatus').textContent = 'Copy failed';
+      }
+    }
+
     function filterDiffs(type, btn) {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
