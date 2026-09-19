@@ -1,10 +1,11 @@
-import type { TraceNode } from "../core/type.js";
-import { makeCanonicalizeIds } from "./canonicalize-ids.js";
+import type { Significance, TraceNode } from "../core/type.js";
+import { canonicalizeIdsRule } from "./canonicalize-ids.js";
 import { makeIgnoreFields } from "./ignore-fields.js";
 import { ignoreTimestamps } from "./ignore-timestamp.js";
 import { makeNumericTolerance } from "./numeric-tolerance.js";
 import { makeSortConcurrent } from "./sort-concurrent.js";
 import type { EquivalenceRule, RawDiff } from "./type.js";
+
 export interface RuleSetOptions {
   ruleNames?: string[]; // subset from --rules, default = all built-ins
   numericTolerance?: number; // --tolerance
@@ -12,18 +13,22 @@ export interface RuleSetOptions {
   isConcurrent?: (node: TraceNode) => boolean;
 }
 
-// Build a FRESH rule set per diff run. This matters specifically because
-// canonicalize-ids carries state (its token map) — reusing one instance
-// across unrelated trace pairs would leak token assignments between them.
 export function buildRuleSet(options: RuleSetOptions = {}): EquivalenceRule[] {
   const available: Record<string, () => EquivalenceRule> = {
     "ignore-timestamps": () => ignoreTimestamps(),
-    "canonicalize-ids": () => makeCanonicalizeIds(),
+    // canonicalize-ids is pure (fixed sentinel, no per-run state) so a
+    // single shared instance is fine — the factory wrapper is kept only
+    // for consistency with the other entries.
+    "canonicalize-ids": () => canonicalizeIdsRule,
     "numeric-tolerance": () =>
       options.numericTolerance !== undefined
         ? makeNumericTolerance({ relativeTolerance: options.numericTolerance })
         : makeNumericTolerance({}),
-    "sort-concurrent": () => makeSortConcurrent(options.isConcurrent ?? (() => false)),
+    // Default predicate: any node typed "parallel" has unordered children.
+    // Previously this defaulted to () => false, which silently disabled
+    // the rule on every well-formed trace.
+    "sort-concurrent": () =>
+      makeSortConcurrent(options.isConcurrent ?? ((node: TraceNode) => node.type === "parallel")),
     "ignore-fields": () => makeIgnoreFields(options.ignoreFields ?? []),
   };
 
@@ -50,16 +55,17 @@ export function shouldSortChildren(node: TraceNode, rules: EquivalenceRule[]): b
 }
 
 // Run classify() across rules for one localized diff. First rule to return
-// a verdict wins — order rules with more specific classify() logic first
-// if you add custom ones. Unclassified diffs default to "semantic": if no
-// rule vouches for it, treat it as real rather than silently dropping it.
+// a verdict wins. Returns both the verdict AND the rule that produced it,
+// so callers do not need a second pass to find `classifiedBy`.
 export function classifyDiff(
   diff: RawDiff,
   rules: EquivalenceRule[],
-): "semantic" | "noise" | "uncertain" {
+): { significance: Significance; classifiedBy?: string } {
   for (const rule of rules) {
     const verdict = rule.classify?.(diff);
-    if (verdict) return verdict;
+    if (verdict) return { significance: verdict, classifiedBy: rule.name };
   }
-  return "semantic";
+  // Unclassified diffs default to "semantic": if no rule vouches for it,
+  // treat it as real rather than silently dropping it.
+  return { significance: "semantic" };
 }

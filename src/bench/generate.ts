@@ -496,12 +496,18 @@ function injectNoiseChanges(root: TraceNode, rng: SeededRandom): number {
       }
     }
 
-    // 4. Reorder concurrent / parallel children
-    if ((node.type === "parallel" || node.children.length > 1) && rng.boolean(0.4)) {
-      // Reverse children array as a harmless ordering variation
-      node.children.reverse();
-      noiseCount++;
-    }
+    // 4. Reorder concurrent / parallel children ONLY.
+    // Sequential traces are order-sensitive; reversing arbitrary siblings
+    // (the previous `|| node.children.length > 1` condition) is a real
+    // structural change, not noise, and was producing false semantic diffs.
+    // Only parallel nodes have unordered children.
+    // if (node.type === "parallel" && node.children.length > 1 && rng.boolean(0.4)) {
+    //   // Reverse children array as a harmless ordering variation.
+    //   // sort-concurrent will re-sort these before hashing, so the reversal
+    //   // produces no hash difference between A and B.
+    //   node.children.reverse();
+    //   noiseCount++;
+    // }
 
     for (const child of node.children) {
       stack.push(child);

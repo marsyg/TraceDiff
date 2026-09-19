@@ -141,6 +141,36 @@ export function diffTrees(
     const { matched, removed, added } = matchChildren(a.children, b.children);
 
     for (const [childA, childB] of matched) {
+      // Prune hash-matched children before pushing: when a node diverges,
+      // most of its children still match (identical or noise-only), and
+      // pushing a frame for each forces the walk to pop them one by one.
+      // Each pop costs a visited node without discovering anything new, so
+      // wide divergence-free fan-out drags skip% down. Resolving the verdict
+      // here skips those subtrees at O(1) hash cost instead. Only genuinely
+      // diverged children are pushed, so semantic/uncertain discovery below
+      // is unchanged.
+      const childVerdict = compareNodes(childA, childB);
+      if (childVerdict === "identical") {
+        // Never popped, so the whole subtree (including its root) was skipped.
+        nodesSkipped += childA.subTreeSize;
+        continue;
+      }
+      if (childVerdict === "noise") {
+        diffs.push({
+          type: "modified",
+          pathA: [...pathA, childA.trace.label],
+          pathB: [...pathB, childB.trace.label],
+          nodeA: childA.trace,
+          nodeB: childB.trace,
+          significance: "noise",
+          description:
+            "Subtree differs only in fields normalized away by active rules (e.g. timestamps, rotated IDs).",
+          depth: depth + 1,
+          affectedSubtreeSize: childA.subTreeSize,
+        });
+        nodesSkipped += childA.subTreeSize;
+        continue;
+      }
       stack.push({
         a: childA,
         b: childB,
@@ -223,7 +253,7 @@ function buildOwnNodeDiff(
       valueA,
       valueB,
     };
-    const significance = classifyDiff(rawDiff, rules);
+    const { significance } = classifyDiff(rawDiff, rules);
     const classifiedBy = rules.find((r) => r.classify?.(rawDiff))?.name;
     fieldVerdicts.push({
       field,

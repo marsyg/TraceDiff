@@ -100,16 +100,6 @@ export interface DiffSummary {
   };
 }
 
-export interface EquivalenceRule {
-  name: string;
-  description: string;
-  priority: number; // Lower priority numbers are evaluated earlier
-  normalize(node: TraceNode): TraceNode;
-  shouldSortChildren?(node: TraceNode): boolean;
-  childSortKey?(child: TraceNode): string;
-  classify?(nodeA: TraceNode, nodeB: TraceNode): Significance | null;
-}
-
 export interface TraceDiffConfig {
   rules: string[];
   ruleConfig: Record<string, Record<string, unknown>>;

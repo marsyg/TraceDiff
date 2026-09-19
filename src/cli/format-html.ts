@@ -1,0 +1,259 @@
+import type { DiffSummary } from "../core/type.js";
+
+export interface HtmlFormatOptions {
+  fileA: string;
+  fileB: string;
+  activeRules?: string[];
+}
+
+export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): string {
+  const jsonSummary = JSON.stringify(summary, null, 2);
+  const rulesList =
+    options.activeRules && options.activeRules.length > 0
+      ? options.activeRules.join(", ")
+      : "none (raw structural)";
+
+  const comparedPct = ((summary.nodesVisited / (summary.traceASize || 1)) * 100).toFixed(1);
+  const skipPct = summary.skipPercentage.toFixed(1);
+
+  const diffItemsHtml = summary.diffs
+    .map((d, index) => {
+      const pathStr = (d.pathB ?? d.pathA ?? []).join(" &rsaquo; ");
+      const badgeClass =
+        d.significance === "semantic"
+          ? "badge-semantic"
+          : d.significance === "uncertain"
+            ? "badge-uncertain"
+            : "badge-noise";
+
+      const typeBadge =
+        d.type === "added"
+          ? '<span class="badge badge-added">ADDED</span>'
+          : d.type === "removed"
+            ? '<span class="badge badge-removed">REMOVED</span>'
+            : '<span class="badge badge-modified">MODIFIED</span>';
+
+      return `
+      <div class="diff-card" data-significance="${d.significance}">
+        <div class="diff-header">
+          <span class="diff-number">#${index + 1}</span>
+          ${typeBadge}
+          <span class="badge ${badgeClass}">${d.significance.toUpperCase()}</span>
+          <span class="diff-path">${escapeHtml(pathStr)}</span>
+        </div>
+        <div class="diff-body">
+          <p class="diff-desc">${escapeHtml(d.description)}</p>
+          <div class="diff-meta">
+            <span>Depth: ${d.depth}</span>
+            <span>Affected Subtree: ${d.affectedSubtreeSize} nodes</span>
+            ${d.classifiedBy ? `<span>Rule: <code>${escapeHtml(d.classifiedBy)}</code></span>` : ""}
+          </div>
+        </div>
+      </div>
+    `;
+    })
+    .join("\n");
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TraceDiff Report — ${escapeHtml(options.fileA)} vs ${escapeHtml(options.fileB)}</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --heading: #f0f6fc;
+      --semantic: #f85149;
+      --semantic-bg: rgba(248, 81, 73, 0.15);
+      --uncertain: #d29922;
+      --uncertain-bg: rgba(210, 153, 34, 0.15);
+      --noise: #58a6ff;
+      --noise-bg: rgba(88, 166, 255, 0.15);
+      --green: #3fb950;
+      --green-bg: rgba(63, 185, 80, 0.15);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 2rem;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header { margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+    h1 { color: var(--heading); font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .trace-meta { color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; }
+    .trace-meta strong { color: var(--text); }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.2rem;
+      text-align: center;
+    }
+    .stat-val { font-size: 1.7rem; font-weight: 700; color: var(--heading); margin-bottom: 0.25rem; }
+    .stat-val.semantic { color: var(--semantic); }
+    .stat-val.green { color: var(--green); }
+    .stat-label { font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .filter-bar {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.4rem 0.9rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: #21262d;
+      border-color: #8b949e;
+    }
+    .diff-list { display: flex; flex-direction: column; gap: 1rem; }
+    .diff-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      transition: transform 0.1s;
+    }
+    .diff-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .diff-number { font-size: 0.85rem; color: var(--text-muted); font-weight: 600; }
+    .diff-path { color: #79c0ff; font-weight: 600; font-size: 0.95rem; }
+    .diff-body { margin-top: 0.5rem; }
+    .diff-desc {
+      font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.88rem;
+      background: #0d1117;
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      margin-bottom: 0.5rem;
+      color: #e6edf3;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .diff-meta { display: flex; gap: 1rem; font-size: 0.8rem; color: var(--text-muted); }
+    .badge {
+      display: inline-block;
+      padding: 0.15rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+    }
+    .badge-semantic { background: var(--semantic-bg); color: var(--semantic); }
+    .badge-uncertain { background: var(--uncertain-bg); color: var(--uncertain); }
+    .badge-noise { background: var(--noise-bg); color: var(--noise); }
+    .badge-added { background: var(--green-bg); color: var(--green); }
+    .badge-removed { background: var(--semantic-bg); color: var(--semantic); }
+    .badge-modified { background: var(--uncertain-bg); color: var(--uncertain); }
+    .json-section { margin-top: 3rem; }
+    details { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
+    summary { cursor: pointer; color: var(--text); font-weight: 600; }
+    pre.raw-json { margin-top: 0.75rem; padding: 1rem; background: #0d1117; border-radius: 6px; overflow-x: auto; font-size: 0.82rem; color: #8b949e; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>TraceDiff Inspection Report</h1>
+      <div class="trace-meta">
+        <div><strong>Trace A:</strong> ${escapeHtml(options.fileA)} (${summary.traceASize.toLocaleString()} nodes)</div>
+        <div><strong>Trace B:</strong> ${escapeHtml(options.fileB)} (${summary.traceBSize.toLocaleString()} nodes)</div>
+        <div><strong>Active Rules:</strong> ${escapeHtml(rulesList)}</div>
+      </div>
+    </header>
+
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-val semantic">${summary.semantic.length}</div>
+        <div class="stat-label">Semantic Diffs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${summary.uncertain.length}</div>
+        <div class="stat-label">Uncertain</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val green">${skipPct}%</div>
+        <div class="stat-label">Merkle Skipped (${summary.nodesSkipped.toLocaleString()} nodes)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${summary.nodesVisited.toLocaleString()}</div>
+        <div class="stat-label">Nodes Compared (${comparedPct}%)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val">${summary.timing.totalMs.toFixed(1)} ms</div>
+        <div class="stat-label">Total Execution Time</div>
+      </div>
+    </div>
+
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterDiffs('all', this)">All (${summary.diffs.length})</button>
+      <button class="filter-btn" onclick="filterDiffs('semantic', this)">Semantic (${summary.semantic.length})</button>
+      <button class="filter-btn" onclick="filterDiffs('uncertain', this)">Uncertain (${summary.uncertain.length})</button>
+      <button class="filter-btn" onclick="filterDiffs('noise', this)">Noise (${summary.noise.length})</button>
+    </div>
+
+    <div class="diff-list" id="diffList">
+      ${diffItemsHtml || '<p style="text-align:center; padding: 2rem; color: var(--text-muted);">No differences found — traces are equivalent.</p>'}
+    </div>
+
+    <div class="json-section">
+      <details>
+        <summary>View Raw JSON DiffSummary</summary>
+        <pre class="raw-json">${escapeHtml(jsonSummary)}</pre>
+      </details>
+    </div>
+  </div>
+
+  <script>
+    function filterDiffs(type, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const cards = document.querySelectorAll('.diff-card');
+      cards.forEach(card => {
+        if (type === 'all' || card.getAttribute('data-significance') === type) {
+          card.style.display = 'block';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
+`;
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}

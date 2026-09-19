@@ -1,0 +1,167 @@
+import type { DiffResult, DiffSummary } from "../core/type.js";
+
+export interface TerminalFormatOptions {
+  fileA: string;
+  fileB: string;
+  activeRules?: string[];
+  stats?: boolean;
+  includeNoise?: boolean;
+  noColor?: boolean;
+}
+
+export function formatTerminal(summary: DiffSummary, options: TerminalFormatOptions): string {
+  const isColor =
+    !options.noColor &&
+    !process.env.NO_COLOR &&
+    (Boolean(process.stdout?.isTTY) || Boolean(process.env.FORCE_COLOR));
+
+  const c = {
+    reset: isColor ? "\x1b[0m" : "",
+    bold: isColor ? "\x1b[1m" : "",
+    dim: isColor ? "\x1b[2m" : "",
+    red: isColor ? "\x1b[31m" : "",
+    green: isColor ? "\x1b[32m" : "",
+    yellow: isColor ? "\x1b[33m" : "",
+    blue: isColor ? "\x1b[34m" : "",
+    cyan: isColor ? "\x1b[36m" : "",
+    gray: isColor ? "\x1b[90m" : "",
+    bgRed: isColor ? "\x1b[41m\x1b[37m\x1b[1m" : "",
+    bgYellow: isColor ? "\x1b[43m\x1b[30m\x1b[1m" : "",
+    bgBlue: isColor ? "\x1b[44m\x1b[37m\x1b[1m" : "",
+    bgGreen: isColor ? "\x1b[42m\x1b[30m\x1b[1m" : "",
+  };
+
+  const lines: string[] = [];
+
+  // ── Header ───────────────────────────────────────────────────────────────
+  lines.push(`${c.bold}tracediff v0.1.0${c.reset}\n`);
+  lines.push(
+    `Trace A: ${c.cyan}${options.fileA}${c.reset} ${c.dim}(${summary.traceASize.toLocaleString()} nodes)${c.reset}`,
+  );
+  lines.push(
+    `Trace B: ${c.cyan}${options.fileB}${c.reset} ${c.dim}(${summary.traceBSize.toLocaleString()} nodes)${c.reset}`,
+  );
+
+  const rulesText =
+    options.activeRules && options.activeRules.length > 0
+      ? options.activeRules.join(", ")
+      : "none (raw structural)";
+  lines.push(`Rules:   ${c.dim}${rulesText}${c.reset}`);
+  lines.push("");
+
+  // ── Diff Section ─────────────────────────────────────────────────────────
+  lines.push(`${c.bold}━━━ Diff Results ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}`);
+  lines.push("");
+
+  const semantic = summary.semantic;
+  const uncertain = summary.uncertain;
+  const noise = summary.noise;
+
+  let counter = 1;
+
+  if (summary.diffs.length === 0) {
+    lines.push(` ${c.bgGreen} IDENTICAL ${c.reset} No differences found (traces are equivalent)\n`);
+  } else {
+    // 1. Semantic
+    if (semantic.length > 0) {
+      const label =
+        semantic.length === 1 ? "1 difference found" : `${semantic.length} differences found`;
+      lines.push(` ${c.bgRed} SEMANTIC ${c.reset}  ${c.bold}${c.red}${label}${c.reset}\n`);
+      for (const d of semantic) {
+        lines.push(formatDiffItem(d, counter++, c));
+      }
+    }
+
+    // 2. Uncertain
+    if (uncertain.length > 0) {
+      const label = uncertain.length === 1 ? "1 difference" : `${uncertain.length} differences`;
+      lines.push(` ${c.bgYellow} UNCERTAIN ${c.reset}  ${c.bold}${c.yellow}${label}${c.reset}\n`);
+      for (const d of uncertain) {
+        lines.push(formatDiffItem(d, counter++, c));
+      }
+    }
+
+    // 3. Noise (optional)
+    if (options.includeNoise && noise.length > 0) {
+      const label = noise.length === 1 ? "1 noise difference" : `${noise.length} noise differences`;
+      lines.push(` ${c.bgBlue} NOISE ${c.reset}  ${c.bold}${c.blue}${label}${c.reset}\n`);
+      for (const d of noise) {
+        lines.push(formatDiffItem(d, counter++, c));
+      }
+    }
+  }
+
+  // ── Statistics ───────────────────────────────────────────────────────────
+  if (options.stats) {
+    lines.push(`${c.bold}━━━ Statistics ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}\n`);
+    const totalA = summary.traceASize || 1;
+    const comparedPct = ((summary.nodesVisited / totalA) * 100).toFixed(1);
+    const skipPct = summary.skipPercentage.toFixed(1);
+
+    lines.push(
+      `  Nodes compared:    ${c.bold}${summary.nodesVisited.toLocaleString()}${c.reset} of ${totalA.toLocaleString()} (${comparedPct}%)`,
+    );
+    lines.push(
+      `  Nodes skipped:     ${c.green}${c.bold}${summary.nodesSkipped.toLocaleString()}${c.reset} (${c.green}${skipPct}%${c.reset}) via Merkle match`,
+    );
+    if (summary.nodesBulkReported > 0) {
+      lines.push(
+        `  Nodes bulk reported: ${summary.nodesBulkReported.toLocaleString()} (removed/depth-capped subtrees)`,
+      );
+    }
+    lines.push(`  Parse time:        ${summary.timing.parseMs.toFixed(1)} ms`);
+    lines.push(
+      `  Merkle build:      ${(summary.timing.treeBuildMs + summary.timing.merkleBuildMs).toFixed(1)} ms`,
+    );
+    const diffTimeStr =
+      summary.timing.diffMs < 1
+        ? `${summary.timing.diffMs.toFixed(2)} ms`
+        : `${summary.timing.diffMs.toFixed(1)} ms`;
+    lines.push(`  Diff time:         ${diffTimeStr}`);
+    lines.push(`  Total:             ${c.bold}${summary.timing.totalMs.toFixed(1)} ms${c.reset}\n`);
+  }
+
+  return lines.join("\n");
+}
+
+function formatDiffItem(d: DiffResult, num: number, c: Record<string, string>): string {
+  const pathArr = d.pathB ?? d.pathA ?? [];
+  const pathStr = pathArr.length > 0 ? pathArr.join(" > ") : "(root)";
+
+  const typeUpper = d.type.toUpperCase();
+  let typeBadge = typeUpper;
+  if (d.type === "added") typeBadge = `${c.green}${c.bold}ADDED${c.reset}`;
+  else if (d.type === "removed") typeBadge = `${c.red}${c.bold}REMOVED${c.reset}`;
+  else if (d.type === "modified") typeBadge = `${c.yellow}${c.bold}MODIFIED${c.reset}`;
+  else typeBadge = `${c.cyan}${c.bold}${typeUpper}${c.reset}`;
+
+  const numStr = `  ${num}.`.padEnd(5);
+  const header = `${c.dim}${numStr}${c.reset}${typeBadge}  ${c.cyan}${pathStr}${c.reset}`;
+
+  const detailLines: string[] = [];
+  if (d.type === "added") {
+    const node = d.nodeB;
+    const childCount = node?.children?.length ?? 0;
+    detailLines.push(
+      `     ${c.green}+ New span: ${node?.label ?? "unknown"} (${childCount} children, ${d.affectedSubtreeSize} total nodes)${c.reset}`,
+    );
+  } else if (d.type === "removed") {
+    const node = d.nodeA;
+    const childCount = node?.children?.length ?? 0;
+    detailLines.push(
+      `     ${c.red}- Removed span: ${node?.label ?? "unknown"} (${childCount} children, ${d.affectedSubtreeSize} total nodes)${c.reset}`,
+    );
+  } else {
+    // Modified: description contains items separated by semicolons
+    const parts = d.description.split("; ");
+    for (const part of parts) {
+      if (d.significance === "semantic") {
+        detailLines.push(`     ${c.red}-${c.reset} ${part}`);
+      } else {
+        detailLines.push(`     ${c.yellow}~${c.reset} ${part}`);
+      }
+    }
+  }
+
+  return `${header}\n${detailLines.join("\n")}\n`;
+}

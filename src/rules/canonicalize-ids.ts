@@ -1,45 +1,56 @@
-import type { EquivalenceRule } from "./type.js";
+import type { TraceNode } from "../core/type.js";
+import type { EquivalenceRule, RawDiff } from "./type.js";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ID_FIELD_RE = /(^|_)id$/i; // matches "id", "request_id", "trace_id"...
+/**
+ * Matches attribute keys that represent identifiers:
+ *   "id", "request_id", "userId", "user_id", "charge.id", "user.attributes.id"
+ * The separator before "id" is either "_" or "." — the original regex only
+ * accepted "_", which silently missed every namespaced field like
+ * "charge.id" and made rotated IDs register as semantic diffs.
+ */
+const ID_FIELD_RE = /(^|[._])id$/i;
 
-// Stateful by design: token assignment has to be consistent within one
-// trace so the same real ID always maps to the same token, but must NOT
-// leak across unrelated diff runs. That's why this is a factory, not a
-// singleton like ignore-timestamps — call makeCanonicalizeIds() once per
-// Merkle build (see registry.ts), never share an instance across traces.
-//
-// Caveat worth knowing: tokens are assigned in first-seen (traversal) order.
-// For trace A and trace B to canonicalize equivalent IDs to the same token,
-// both traces must be walked in the same deterministic order (pre-order DFS,
-// same child ordering) up to the point each ID first appears. If your
-// Merkle builder sorts children differently between A and B before this
-// rule runs, token assignment can drift and cause false "semantic" diffs.
-export function makeCanonicalizeIds(): EquivalenceRule {
-  let counter = 0;
-  const seen = new Map<string, string>();
+/**
+ * A fixed sentinel. Deliberately NOT a counter.
+ *
+ * Earlier versions assigned __ID_0__, __ID_1__, ... in traversal order.
+ * That made the rule ORDER-DEPENDENT: if two traces had their children in
+ * different orders (concurrent spans, an upstream sort, a rule-driven
+ * reorder), the same logical field received a different token in A vs B,
+ * and every "noise" ID rotation was escalated to a semantic diff.
+ *
+ * A constant token removes the dependency entirely. The rule becomes pure,
+ * so the whole "one fresh instance per trace" factory dance is unnecessary.
+ */
+const ID_TOKEN = "__TRACEDIFF_ID__";
 
-  function tokenFor(value: string): string {
-    const existing = seen.get(value);
-    if (existing) return existing;
-    const token = `__ID_${counter++}__`;
-    seen.set(value, token);
-    return token;
-  }
+export const canonicalizeIdsRule: EquivalenceRule = {
+  name: "canonicalize-ids",
+  description:
+    "Replaces identifier-valued fields with a stable sentinel so rotated IDs are treated as noise",
 
-  return {
-    name: "canonicalize-ids",
-    description:
-      "Replaces UUID/ID-shaped values with positional tokens so a rotated correlation ID reads as identical.",
+  normalize(node: TraceNode): TraceNode {
+    const attrs = node.attributes;
+    if (!attrs || typeof attrs !== "object") return node;
 
-    normalize(node) {
-      const attributes: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(node.attributes)) {
-        const looksLikeId =
-          typeof value === "string" && (UUID_RE.test(value) || ID_FIELD_RE.test(key));
-        attributes[key] = looksLikeId ? tokenFor(value as string) : value;
+    let mutated = false;
+    const next: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(attrs)) {
+      if (ID_FIELD_RE.test(key) && value != null && value !== ID_TOKEN) {
+        next[key] = ID_TOKEN;
+        mutated = true;
+      } else {
+        next[key] = value;
       }
-      return { ...node, attributes };
-    },
-  };
-}
+    }
+
+    return mutated ? { ...node, attributes: next } : node;
+  },
+
+  // Called per-field with a RawDiff. Just check the one field we were handed.
+  classify(diff: RawDiff): "noise" | undefined {
+    if (!diff.field || !ID_FIELD_RE.test(diff.field)) return undefined;
+    if (diff.valueA === diff.valueB) return undefined;
+    return "noise";
+  },
+};
