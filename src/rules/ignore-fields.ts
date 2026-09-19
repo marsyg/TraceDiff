@@ -1,4 +1,4 @@
-import type { EquivalenceRule } from "./type";
+import type { EquivalenceRule } from "./type.js";
 
 // The manual escape hatch: whatever the other rules don't cover, --ignore-
 // fields lets the user blocklist by hand. Deliberately dumb — no pattern

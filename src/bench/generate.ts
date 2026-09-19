@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { TraceNode } from "../core/types.js";
+import type { TraceNode } from "../core/type.js";
 
 /**
  * 32-bit Mulberry32 seeded pseudo-random number generator.

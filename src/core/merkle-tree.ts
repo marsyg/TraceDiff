@@ -1,27 +1,10 @@
 import { createHash } from "node:crypto";
-import { applyRules, shouldSortChildren } from "../rules/registry";
-import type { EquivalenceRule } from "../rules/type";
-import { canonicalStringify } from "./canoicalJson";
-import type { TraceNode } from "./type";
+import { applyRules, shouldSortChildren } from "../rules/registry.js";
+import type { EquivalenceRule } from "../rules/type.js";
+import { canonicalSerialize } from "./hash.js";
+import type { MerkleNode, TraceNode } from "./type.js";
 
-export interface MerkleNode {
-  // Hash of the NORMALIZED content (post-rules). Two nodes with the same
-  // normalizedHash are semantically equivalent — this is what the diff
-  // walker uses to skip subtrees and localize real (red) divergence.
-  normalizedHash: string;
-
-  // Hash of the RAW, unnormalized content. Two nodes can have equal
-  // normalizedHash but different rawHash — that's exactly the "noise"
-  // case (yellow): something genuinely changed (a timestamp, a rotated
-  // ID, a jittery latency number) but a rule decided it doesn't matter.
-  // Without this second hash there is no way to tell "truly identical"
-  // (green) apart from "identical after normalization" (yellow) — both
-  // would just look like a silent match.
-  rawHash: string;
-
-  trace: TraceNode; // original, unnormalized node — kept for display
-  children: MerkleNode[];
-}
+export type { MerkleNode };
 
 export function buildMerkleTree(node: TraceNode, rules: EquivalenceRule[]): MerkleNode {
   const normalized = applyRules(node, rules);
@@ -44,12 +27,12 @@ export function buildMerkleTree(node: TraceNode, rules: EquivalenceRule[]): Merk
     });
   }
 
-  const normalizedContent = canonicalStringify({
+  const normalizedContent = canonicalSerialize({
     type: normalized.type,
     label: normalized.label,
     attributes: normalized.attributes,
   });
-  const rawContent = canonicalStringify({
+  const rawContent = canonicalSerialize({
     type: node.type,
     label: node.label,
     attributes: node.attributes,
@@ -64,8 +47,9 @@ export function buildMerkleTree(node: TraceNode, rules: EquivalenceRule[]): Merk
     .update(rawContent)
     .update(childNodes.map((c) => c.rawHash).join(""))
     .digest("hex");
+  const subTreeSize = 1 + childNodes.reduce((n, c) => n + c.subTreeSize, 0);
 
-  return { normalizedHash, rawHash, trace: node, children: childNodes };
+  return { normalizedHash, rawHash, trace: node, children: childNodes, subTreeSize };
 }
 
 export type MatchVerdict = "identical" | "noise" | "diverges";

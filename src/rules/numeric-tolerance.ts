@@ -1,4 +1,4 @@
-import type { EquivalenceRule, RawDiff } from "./type";
+import type { EquivalenceRule, RawDiff } from "./type.js";
 
 export interface NumericToleranceRuleConfig {
   relativeTolerance?: number;

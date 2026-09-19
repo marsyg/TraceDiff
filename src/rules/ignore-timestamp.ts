@@ -1,4 +1,4 @@
-import type { EquivalenceRule } from "./type";
+import type { EquivalenceRule } from "./type.js";
 
 const TIMESTAMP_KEYS = new Set([
   "timestamp",
@@ -9,8 +9,17 @@ const TIMESTAMP_KEYS = new Set([
   "recorded_at",
 ]);
 
+/**
+ * Equivalence rule that neutralizes wall-clock timestamp variance.
+ *
+ * Real executions inevitably record different timestamps due to CPU scheduling,
+ * clock drift, and invocation intervals. Rather than deleting the field, this
+ * rule replaces timestamp values with a fixed sentinel token (`__TIMESTAMP__`).
+ * This preserves schema structure and field presence while allowing identical
+ * execution flows to produce identical Merkle hashes (noise isolation).
+ */
 export const ignoreTimestamps = (): EquivalenceRule => ({
-  name: "ignore-timestamp",
+  name: "ignore-timestamps",
   description: "Ignores timestamp fields",
   normalize(node) {
     const attributes: Record<string, unknown> = {};

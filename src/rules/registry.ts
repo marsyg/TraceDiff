@@ -1,10 +1,10 @@
-import type { TraceNode } from "../core/type";
-import { makeCanonicalizeIds } from "./canonicalize-ids";
-import { ignoreTimestamps } from "./ignore-timestamp";
-import { makeIgnoreFields } from "./ignoreFields";
-import { makeNumericTolerance } from "./numericTolerance";
-import { makeSortConcurrent } from "./sortConcurrent";
-import type { EquivalenceRule, RawDiff } from "./type";
+import type { TraceNode } from "../core/type.js";
+import { makeCanonicalizeIds } from "./canonicalize-ids.js";
+import { makeIgnoreFields } from "./ignore-fields.js";
+import { ignoreTimestamps } from "./ignore-timestamp.js";
+import { makeNumericTolerance } from "./numeric-tolerance.js";
+import { makeSortConcurrent } from "./sort-concurrent.js";
+import type { EquivalenceRule, RawDiff } from "./type.js";
 export interface RuleSetOptions {
   ruleNames?: string[]; // subset from --rules, default = all built-ins
   numericTolerance?: number; // --tolerance

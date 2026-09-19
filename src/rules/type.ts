@@ -1,5 +1,4 @@
 import type { TraceNode } from "../core/type.js";
-
 // A single attribute-level difference found on an already-localized subtree.
 // classify() only ever sees these — never whole subtrees — because by the
 // time you're calling classify, the Merkle walk has already narrowed the

@@ -2,7 +2,7 @@ import { afterAll, describe, expect, it } from "bun:test";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { countNodes, generateTraces, parseArgs, writeTraces } from "../src/bench/generate.js";
-import type { TraceNode } from "../src/core/types.js";
+import type { TraceNode } from "../src/core/type.js";
 
 function findNodeById(root: TraceNode, id: string): TraceNode | null {
   const stack = [root];

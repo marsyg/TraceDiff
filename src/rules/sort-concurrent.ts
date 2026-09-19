@@ -1,5 +1,5 @@
-import type { TraceNode } from "../core/type";
-import type { EquivalenceRule } from "./type";
+import type { TraceNode } from "../core/type.js";
+import type { EquivalenceRule } from "./type.js";
 
 // This rule doesn't touch attributes — its only job is to answer "should
 // this node's children be treated as unordered?" The actual sort (by label,
