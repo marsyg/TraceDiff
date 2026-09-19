@@ -172,7 +172,7 @@ describe("Lambda — submit-job handler", () => {
     const origSfnSend = sfnClient.send;
     docClient.send = (async () => ({})) as unknown as typeof docClient.send;
     sfnClient.send = (async () => ({
-      executionArn: "arn:test:execution",
+      executionArn: "arn:aws:states:mock",
     })) as unknown as typeof sfnClient.send;
 
     try {

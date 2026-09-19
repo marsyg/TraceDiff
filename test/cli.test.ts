@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { run } from "../src/cli/main.js";
 
@@ -126,5 +126,91 @@ describe("CLI — trace diffing execution", () => {
     expect(code).toBe(1);
     const parsed = JSON.parse(stdout);
     expect(parsed.diffs.length).toBeGreaterThan(0);
+  });
+
+  test("supports --finops flag in terminal output", () => {
+    const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--finops"]);
+    expect(code).toBe(1);
+    expect(stdout).toContain("━━━ FinOps Cost Impact ━━━━━━━━━━━━━━━━━━━━━━━━");
+    expect(stdout).toContain("Baseline trace:");
+    expect(stdout).toContain("Target trace:");
+    expect(stdout).toContain("Monthly impact:");
+    expect(stdout).toContain("Disclaimer:");
+  });
+
+  test("supports --finops displaying prescriptive fixes when cost regresses", () => {
+    const tempA = join(FIXTURES_DIR, "temp_finops_a.json");
+    const tempB = join(FIXTURES_DIR, "temp_finops_b.json");
+    writeFileSync(
+      tempA,
+      JSON.stringify({ id: "root", type: "span", label: "api", attributes: {}, children: [] }),
+    );
+    writeFileSync(
+      tempB,
+      JSON.stringify({
+        id: "root",
+        type: "span",
+        label: "api",
+        attributes: {},
+        children: [
+          {
+            id: "s3-call",
+            type: "span",
+            label: "s3_read_cold_cache",
+            attributes: { "rpc.service": "s3", "db.operation": "GetObject" },
+            children: [],
+          },
+        ],
+      }),
+    );
+    try {
+      const { code, stdout } = captureRun([tempA, tempB, "--finops"]);
+      expect(code).toBe(1);
+      expect(stdout).toContain("💡 Prescriptive Fixes & Cost Optimization:");
+      expect(stdout).toContain("Cold Storage Cache Miss");
+      expect(stdout).toContain("Save up to");
+    } finally {
+      if (existsSync(tempA)) unlinkSync(tempA);
+      if (existsSync(tempB)) unlinkSync(tempB);
+    }
+  });
+
+  test("supports --finops with custom --requests-per-month", () => {
+    const { code, stdout } = captureRun([
+      DIFF_A,
+      DIFF_B,
+      "--finops",
+      "--requests-per-month",
+      "50000000",
+      "--output",
+      "json",
+    ]);
+    expect(code).toBe(1);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.finops).toBeDefined();
+    expect(parsed.finops.requestsPerMonth).toBe(50000000);
+    expect(parsed.finops.remediations).toBeDefined();
+    expect(Array.isArray(parsed.finops.remediations)).toBe(true);
+  });
+
+  test("supports --finops with --output json including finops object", () => {
+    const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--finops", "--output", "json"]);
+    expect(code).toBe(1);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.finops).toBeDefined();
+    expect(parsed.finops.baselineCostUsd).toBeDefined();
+    expect(parsed.finops.targetCostUsd).toBeDefined();
+    expect(parsed.finops.projectedMonthlyUsd).toBeDefined();
+    expect(parsed.finops.topCostDrivers).toBeDefined();
+  });
+
+  test("without --finops, output does not include finops object or section", () => {
+    const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--output", "json"]);
+    expect(code).toBe(1);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.finops).toBeUndefined();
+
+    const termRun = captureRun([DIFF_A, DIFF_B]);
+    expect(termRun.stdout).not.toContain("FinOps Cost Impact");
   });
 });
