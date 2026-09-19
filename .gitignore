@@ -18,6 +18,8 @@ samconfig.toml
 # OS files
 .DS_Store
 Thumbs.db
+.env
+.env.local
 
 # Editor
 .vscode/
