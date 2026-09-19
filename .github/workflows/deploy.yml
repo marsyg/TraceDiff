@@ -59,6 +59,7 @@ jobs:
             --resolve-s3 \
             --s3-prefix tracediff \
             --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
             --parameter-overrides Environment="dev" CorsOrigin="*" RetentionDays=14
 
       # -------------------------------------------------------------

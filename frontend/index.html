@@ -37,12 +37,8 @@ tailwind.config = { theme: { extend: {
     animation: flow 1.6s linear infinite;
     border-color: #eab308 !important;
   }
-  @keyframes heartbeat { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
-  .pulse-red { animation: heartbeat 1.4s ease-in-out infinite; }
-  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-  .rise { animation: rise .45s ease both; }
-  .rise-1 { animation-delay: .05s; } .rise-2 { animation-delay: .12s; }
-  .rise-3 { animation-delay: .19s; } .rise-4 { animation-delay: .26s; }
+  @keyframes skel { 0% { opacity: .45; } 50% { opacity: 1; } 100% { opacity: .45; } }
+  .skel { animation: skel 1.2s ease-in-out infinite; }
   [data-tip] { position: relative; }
   [data-tip]:hover::after {
     content: attr(data-tip);
@@ -55,47 +51,54 @@ tailwind.config = { theme: { extend: {
   .tree-children { border-left: 1px solid #27272a; margin-left: 11px; padding-left: 14px; }
   .tnode-row { transition: background .15s ease; }
   .tnode-row:hover { background: #18181b; }
-  .tnode-row.selected { background: #1c1917; box-shadow: inset 2px 0 0 #f43f5e; }
-  #drawer { transition: transform .3s cubic-bezier(.32,.72,.35,1); }
-  .card-div { transition: border-color .15s ease, background .15s ease, transform .15s ease; }
-  .card-div:hover { transform: translateX(2px); }
-  .card-div.selected { background: #18181b !important; }
+  .tnode-row.selected { background: #1c1917; box-shadow: inset 2px 0 0 #fb923c; }
+  .tnode-row.hidden-row { display: none; }
+  .collapsed-row { border: 1px dashed #3f3f46; }
+  .collapsed-row:hover { border-color: #71717a; background: #18181b; }
+  .uncertain-outline { border: 1px dashed #a855f7 !important; }
   .tab-btn { transition: all .2s ease; }
   .dropzone.drag { border-color: #71717a !important; background: #18181b !important; }
+  .seg-btn[aria-pressed="false"] { opacity: .45; }
+  mark.hl { background: rgba(251,191,36,.25); color: #fde68a; border-radius: 2px; padding: 0 1px; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+  @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body class="text-zinc-200 font-sans antialiased min-h-screen">
 
 <header class="sticky top-0 z-40 border-b border-edge bg-surface/95 backdrop-blur">
-  <div class="max-w-6xl mx-auto px-5 h-12 flex items-center gap-3">
+  <div class="max-w-7xl mx-auto px-5 h-12 flex items-center gap-3">
     <div class="flex items-center gap-2">
       <i data-lucide="git-compare-arrows" class="w-4 h-4 text-zinc-100"></i>
       <span class="font-mono font-bold text-sm tracking-tight text-zinc-100">TraceDiff</span>
     </div>
     <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-500">
       <span id="status-dot" class="w-2 h-2 rounded-full bg-zinc-600 inline-block"></span>
-      <span id="status-text">idle | us-east-1 | Step Functions Map-State Engine</span>
+      <span id="status-text">idle | Step Functions Map-State Engine</span>
     </div>
-    <div class="ml-auto font-mono text-[11px] text-zinc-600" id="job-id"></div>
+    <div class="ml-auto flex items-center gap-3">
+      <span class="font-mono text-[11px] text-zinc-600" id="api-source" data-tip="Backend API in use. Override with ?api=https://..."></span>
+      <span class="font-mono text-[11px] text-zinc-600" id="job-id"></span>
+    </div>
   </div>
 </header>
 
-<main class="max-w-6xl mx-auto px-5 pb-24">
+<main class="max-w-7xl mx-auto px-5 pb-24">
 
-  <section class="pt-12 pb-8 text-center">
-    <div class="flex items-center justify-center gap-2 mb-4 flex-wrap rise">
+  <section class="pt-10 pb-6 text-center">
+    <div class="flex items-center justify-center gap-2 mb-4 flex-wrap">
       <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">Merkle-Tree Pruned</span>
       <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">AWS Step Functions Map-State</span>
       <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">Deterministic Equivalence</span>
     </div>
-    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-zinc-100 rise rise-1">Distributed Trace Diffing Engine</h1>
-    <p class="mt-4 text-zinc-400 text-base md:text-lg max-w-2xl mx-auto rise rise-2">Sub-second semantic regression analysis using Merkle Tree pruning and equivalence rules. Filter 99% noise, pinpoint 5 real bugs.</p>
-    <div class="mt-7 flex items-center justify-center gap-3 flex-wrap rise rise-3">
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-zinc-100">Distributed Trace Diffing Engine</h1>
+    <p class="mt-4 text-zinc-400 text-base md:text-lg max-w-2xl mx-auto">Sub-second semantic regression analysis using Merkle Tree pruning and equivalence rules. Filter 99% noise, pinpoint the real bugs.</p>
+    <div class="mt-7 flex items-center justify-center gap-3 flex-wrap">
       <button id="demo-btn" class="inline-flex items-center gap-2 bg-zinc-100 text-zinc-950 font-semibold text-sm px-6 py-3 rounded-lg hover:bg-white transition-colors">
         <i data-lucide="zap" class="w-4 h-4"></i>
         Load 1-Click Benchmark Demo
       </button>
-      <button id="upload-toggle" class="inline-flex items-center gap-2 border border-edge bg-surface text-zinc-300 font-medium text-sm px-6 py-3 rounded-lg hover:border-zinc-500 transition-colors">
+      <button id="upload-toggle" class="inline-flex items-center gap-2 border border-edge bg-surface text-zinc-300 font-medium text-sm px-6 py-3 rounded-lg hover:border-zinc-500 transition-colors" aria-pressed="false">
         <i data-lucide="upload" class="w-4 h-4"></i>
         Upload Custom Traces
       </button>
@@ -103,26 +106,17 @@ tailwind.config = { theme: { extend: {
     <div id="demo-meta" class="mt-4 font-mono text-[11px] text-zinc-500 hidden"></div>
   </section>
 
-  <section class="border border-edge bg-surface rounded-xl px-4 py-3 flex items-center gap-2 flex-wrap rise rise-4">
-    <span class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mr-1 inline-flex items-center gap-1.5">
-      <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>equivalence rules
-    </span>
-    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="ignore-timestamps" aria-pressed="true" data-tip="Suppresses timestamp jitter and clock skew">ignore-timestamps</button>
-    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="canonicalize-ids" aria-pressed="true" data-tip="Suppresses UUID and GUID rotation">canonicalize-ids</button>
-    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="numeric-tolerance" aria-pressed="true" data-tip="Suppresses floating-point and duration drift">numeric-tolerance</button>
-    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="sort-concurrent" aria-pressed="true" data-tip="Suppresses async child-span interleaving">sort-concurrent</button>
-  </section>
-
-  <section id="upload-panel" class="hidden mt-4">
-    <div class="grid md:grid-cols-2 gap-3">
-      <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-6 text-center cursor-pointer transition-colors" id="dz-a" tabindex="0">
+  <!-- Inputs + rules + Compare -->
+  <section class="border border-edge bg-surface rounded-xl p-4">
+    <div class="grid md:grid-cols-2 gap-3" id="upload-panel">
+      <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-5 text-center cursor-pointer transition-colors" id="dz-a" tabindex="0" role="button" aria-label="Load baseline trace A">
         <i data-lucide="file-json" class="w-6 h-6 text-zinc-500 mx-auto mb-2"></i>
         <h2 class="text-sm font-semibold text-zinc-200">Baseline Trace (Trace A)</h2>
         <p class="text-xs text-zinc-500 mt-1">Drag and drop or click to browse JSON</p>
         <div class="font-mono text-[11px] text-zinc-500 mt-2" id="meta-a">no file loaded</div>
         <input type="file" id="file-a" accept="application/json,.json" hidden>
       </div>
-      <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-6 text-center cursor-pointer transition-colors" id="dz-b" tabindex="0">
+      <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-5 text-center cursor-pointer transition-colors" id="dz-b" tabindex="0" role="button" aria-label="Load target trace B">
         <i data-lucide="file-json-2" class="w-6 h-6 text-zinc-500 mx-auto mb-2"></i>
         <h2 class="text-sm font-semibold text-zinc-200">Target Trace (Trace B)</h2>
         <p class="text-xs text-zinc-500 mt-1">Drag and drop or click to browse JSON</p>
@@ -130,9 +124,26 @@ tailwind.config = { theme: { extend: {
         <input type="file" id="file-b" accept="application/json,.json" hidden>
       </div>
     </div>
+
+    <div class="mt-3 flex items-center gap-2 flex-wrap">
+      <span class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mr-1 inline-flex items-center gap-1.5">
+        <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>equivalence rules
+      </span>
+      <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="ignore-timestamps" aria-pressed="true" data-tip="Suppresses timestamp jitter and clock skew">ignore-timestamps</button>
+      <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="canonicalize-ids" aria-pressed="true" data-tip="Suppresses UUID and GUID rotation">canonicalize-ids</button>
+      <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="numeric-tolerance" aria-pressed="true" data-tip="Suppresses floating-point and duration drift">numeric-tolerance</button>
+      <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="sort-concurrent" aria-pressed="true" data-tip="Suppresses async child-span interleaving">sort-concurrent</button>
+      <label class="font-mono text-[11px] text-zinc-500 inline-flex items-center gap-1.5 ml-1" data-tip="Relative numeric tolerance, e.g. 0.05 = ±5%">
+        ±<input id="tolerance-input" type="number" min="0" max="1" step="0.01" value="0.05" class="w-16 bg-surface2 border border-edge rounded-md px-1.5 py-1 text-zinc-200 font-mono text-[11px]">
+      </label>
+      <label class="font-mono text-[11px] text-zinc-500 inline-flex items-center gap-1.5" data-tip="Extra attribute keys to ignore, comma-separated">
+        ignore:<input id="ignore-fields-input" type="text" placeholder="request_id, trace_id" class="w-44 bg-surface2 border border-edge rounded-md px-1.5 py-1 text-zinc-200 font-mono text-[11px]">
+      </label>
+    </div>
+
     <div class="mt-3 flex items-center gap-3">
       <button id="run-btn" disabled class="inline-flex items-center gap-2 bg-zinc-100 text-zinc-950 font-mono font-bold text-[13px] px-5 py-2.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors">
-        <i data-lucide="play" class="w-4 h-4"></i>[ Run Distributed Diff ]
+        <i data-lucide="play" class="w-4 h-4"></i>[ Compare Traces ]
       </button>
       <button id="reset-btn" class="font-mono text-xs text-zinc-500 border border-edge rounded-lg px-4 py-2.5 hover:text-zinc-300 hover:border-zinc-500 transition-colors">Reset</button>
     </div>
@@ -146,100 +157,107 @@ tailwind.config = { theme: { extend: {
     <div class="grid grid-cols-2 md:grid-cols-4 gap-2" id="pipe-stages"></div>
   </section>
 
-  <section class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3" id="metrics">
-    <div class="border border-edge bg-surface rounded-xl p-4">
-      <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5"><i data-lucide="scissors" class="w-3.5 h-3.5"></i>Prune Ratio</div>
-      <div class="font-mono text-2xl font-bold mt-1.5 text-emerald-400" id="m-skip">--</div>
-      <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="m-skip-sub">Merkle-skipped subtrees</div>
-    </div>
-    <div class="border border-edge bg-surface rounded-xl p-4">
-      <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5"><i data-lucide="filter" class="w-3.5 h-3.5"></i>Noise Filtered</div>
-      <div class="font-mono text-2xl font-bold mt-1.5 text-amber-400" id="m-noise">--</div>
-      <div class="font-mono text-[11px] text-zinc-500 mt-0.5">suppressed by equivalence rules</div>
-    </div>
-    <div class="border border-rose-900/60 bg-surface rounded-xl p-4">
-      <div class="font-mono text-[10px] uppercase tracking-widest text-rose-400/80 flex items-center gap-1.5"><i data-lucide="siren" class="w-3.5 h-3.5"></i>Critical Divergences</div>
-      <div class="font-mono text-2xl font-bold mt-1.5 text-rose-500" id="m-sem">--</div>
-      <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="m-sem-sub">semantic regressions</div>
-    </div>
-    <div class="border border-edge bg-surface rounded-xl p-4">
-      <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5"><i data-lucide="timer" class="w-3.5 h-3.5"></i>Diff Latency</div>
-      <div class="font-mono text-2xl font-bold mt-1.5 text-zinc-100" id="m-diff">--</div>
-      <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="m-diff-sub">backend engine time</div>
+  <!-- KPI bar: hidden until the first compare -->
+  <section id="kpis" class="hidden mt-4 border border-edge bg-surface rounded-xl px-5 py-4">
+    <div class="flex items-end gap-6 flex-wrap">
+      <div>
+        <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+          <i data-lucide="scissors" class="w-3.5 h-3.5"></i>Merkle skipped
+        </div>
+        <div class="font-mono text-4xl font-bold mt-1 text-emerald-400" id="k-skip">--</div>
+        <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="k-skip-sub">--</div>
+      </div>
+      <div class="flex items-center gap-2 pb-1" role="group" aria-label="Diff counts by significance">
+        <span class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mr-1">diffs</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-rose-500 text-rose-400" id="k-sem" data-tip="Semantic regressions — behavior actually changed">--</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-purple-500 text-purple-400" id="k-unc" data-tip="Uncertain — not fully explored, needs judgment">--</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-amber-700 text-amber-400" id="k-noise" data-tip="Noise — judged safe by an equivalence rule">--</span>
+      </div>
+      <div class="ml-auto text-right pb-1">
+        <div class="font-mono text-[11px] text-zinc-500" id="k-nodes">--</div>
+        <div class="font-mono text-[11px] text-zinc-600" id="k-time">--</div>
+      </div>
     </div>
   </section>
 
-  <section class="mt-4">
-    <div class="flex items-center gap-2 flex-wrap">
-      <button class="tab-btn font-mono text-xs px-4 py-2 rounded-lg border border-zinc-100 bg-zinc-100 text-zinc-950 font-semibold" data-tab="divs" aria-pressed="true">
-        Critical Divergences
-      </button>
-      <button class="tab-btn font-mono text-xs px-4 py-2 rounded-lg border border-edge bg-surface text-zinc-400 hover:border-zinc-500" data-tab="tree" aria-pressed="false">
-        Visual Tree Graph
-      </button>
-      <button id="noise-toggle" class="ml-auto font-mono text-[11px] px-3 py-1.5 rounded-md border border-edge bg-surface text-zinc-500 hover:border-amber-500/60 hover:text-amber-400 transition-colors" aria-pressed="false">
-        show noise
-      </button>
+  <!-- Tree toolbar: search + grouping + significance filter -->
+  <section id="tree-toolbar" class="hidden mt-4 flex items-center gap-2 flex-wrap">
+    <div class="relative">
+      <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+      <input id="tree-search" type="text" placeholder="Search spans, services, descriptions…" aria-label="Search diff tree"
+        class="bg-surface border border-edge rounded-lg pl-8 pr-3 py-2 font-mono text-xs text-zinc-200 w-64 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500">
     </div>
+    <select id="group-select" aria-label="Group flat spans by"
+      class="bg-surface border border-edge rounded-lg px-3 py-2 font-mono text-xs text-zinc-300 focus:outline-none focus:border-zinc-500">
+      <option value="none">Group: none (trace order)</option>
+      <option value="service">Group: by service</option>
+      <option value="type">Group: by span type</option>
+    </select>
+    <div class="flex items-center gap-1.5 ml-1" role="group" aria-label="Toggle significance classes">
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-orange-700 text-orange-400" data-sig="semantic" aria-pressed="true">~ semantic</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-purple-700 text-purple-400" data-sig="uncertain" aria-pressed="true">? uncertain</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-amber-800 text-amber-500" data-sig="noise" aria-pressed="true">≈ noise</button>
+    </div>
+    <span class="font-mono text-[11px] text-zinc-600 ml-auto" id="tree-count"></span>
+  </section>
 
-    <div id="view-divs" class="mt-3">
-      <div id="div-list" class="flex flex-col gap-2">
-        <div class="border border-dashed border-edge rounded-xl p-10 text-center">
-          <i data-lucide="radar" class="w-6 h-6 text-zinc-600 mx-auto mb-2"></i>
-          <p class="font-mono text-xs text-zinc-500">No live results yet. Run the 1-click demo or upload traces.</p>
-          <p class="font-mono text-[11px] text-zinc-600 mt-1">Every value on this page comes from the live AWS backend or your uploaded files. No mock diff data.</p>
-        </div>
+  <!-- Unified tree + detail panel -->
+  <section id="tree-section" class="hidden mt-3 grid gap-3 lg:grid-cols-[1fr_380px]">
+    <div class="border border-edge bg-surface rounded-xl overflow-hidden min-w-0">
+      <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+        <i data-lucide="network" class="w-3.5 h-3.5"></i>
+        <span>Unified diff tree</span>
+        <span class="ml-auto flex items-center gap-3 normal-case tracking-normal">
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-zinc-600 inline-block"></span>unchanged</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>noise</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>added</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>removed</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500 inline-block"></span>semantic</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-dashed border-purple-400 inline-block"></span>uncertain</span>
+        </span>
       </div>
+      <div id="tree" class="p-2 font-mono text-xs max-h-[640px] overflow-auto"></div>
     </div>
-
-    <div id="view-tree" class="hidden mt-3">
-      <div class="border border-edge bg-surface rounded-xl overflow-hidden">
-        <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-zinc-500 flex items-center gap-2">
-          <i data-lucide="network" class="w-3.5 h-3.5"></i>
-          <span>Trace B call tree, annotated with backend diffs</span>
-          <span class="ml-auto flex items-center gap-3 normal-case tracking-normal">
-            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>identical</span>
-            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>noise</span>
-            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>divergent</span>
-          </span>
-        </div>
-        <div id="tree" class="p-2 font-mono text-xs max-h-[560px] overflow-auto"></div>
+    <aside class="border border-edge bg-surface rounded-xl overflow-hidden lg:sticky lg:top-16 self-start lg:max-h-[640px] lg:overflow-auto" aria-label="Diff detail">
+      <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+        <i data-lucide="scan-search" class="w-3.5 h-3.5"></i>
+        <span>Detail</span>
       </div>
-    </div>
+      <div id="detail-body" class="p-4"></div>
+    </aside>
   </section>
 
   <footer class="mt-10 font-mono text-[10px] text-zinc-600 text-center">
-    TraceDiff frontend | zero mock diff data | <span id="api-url"></span>
+    TraceDiff frontend | every value from the live backend or your files — no mock diffs | <span id="api-url"></span>
   </footer>
 
-  <div id="drawer-scrim" class="hidden fixed inset-0 bg-black/60 z-40"></div>
-  <aside id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-surface border-l border-edge z-50 translate-x-full flex flex-col">
-    <div class="px-5 py-4 border-b border-edge flex items-center gap-2">
-      <i data-lucide="scan-search" class="w-4 h-4 text-zinc-400"></i>
-      <span class="font-mono text-[11px] uppercase tracking-widest text-zinc-400">span inspector</span>
-      <button id="drawer-close" class="ml-auto text-zinc-500 hover:text-zinc-200 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
-    </div>
-    <div id="drawer-body" class="p-5 overflow-y-auto font-mono text-xs"></div>
-  </aside>
-
-  <div id="toast-wrap" class="hidden">
+  <div id="toast-wrap" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
     <div class="flex items-start gap-2 bg-surface2 border border-rose-800 rounded-lg px-4 py-3 max-w-lg shadow-2xl">
       <i data-lucide="triangle-alert" class="w-4 h-4 text-rose-500 mt-0.5 shrink-0"></i>
       <div class="font-mono text-[11px] text-rose-200 whitespace-pre-wrap break-words" id="toast-text"></div>
     </div>
   </div>
+</main>
 
 <script>
 "use strict";
-var BASE_URL = "https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev";
+/* Backend endpoint: ?api= override wins (demo- and deploy-friendly),
+   otherwise the deployed default. Shown in the header/footer. */
+var DEFAULT_API = "https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev";
+var API_PARAM = null;
+try { API_PARAM = new URLSearchParams(window.location.search).get("api"); } catch (e) {}
+var BASE_URL = API_PARAM || DEFAULT_API;
 document.getElementById("api-url").textContent = BASE_URL;
+document.getElementById("api-source").textContent = API_PARAM ? "api: custom ?api=" : "api: default";
 
 var state = {
   fileA: null, fileB: null,
   rules: { "ignore-timestamps": true, "canonicalize-ids": true, "numeric-tolerance": true, "sort-concurrent": true },
   jobId: null, summary: null, results: [],
-  tab: "divs", showNoise: false, selected: -1,
-  treeB: null, diffByPath: {}, expanded: {}, nodeIndex: {}
+  query: "", groupBy: "none",
+  showSig: { semantic: true, uncertain: true, noise: true },
+  collapsed: {}, selected: -1,
+  treeB: null, diffByPath: {}, nodeIndex: {}
 };
 
 function el(id) { return document.getElementById(id); }
@@ -397,24 +415,30 @@ function wireDropzone(slot) {
 wireDropzone("A"); wireDropzone("B");
 
 el("upload-toggle").addEventListener("click", function () {
-  el("upload-panel").classList.toggle("hidden");
+  var panel = el("upload-panel");
+  var show = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden");
+  el("upload-toggle").setAttribute("aria-pressed", String(show));
   icons();
 });
 el("reset-btn").addEventListener("click", function () {
   state.fileA = state.fileB = null; state.jobId = null;
   state.summary = null; state.results = []; state.selected = -1;
-  state.treeB = null; state.diffByPath = {}; state.expanded = {}; state.nodeIndex = {};
-  state.showNoise = false;
-  el("noise-toggle").textContent = "show noise"; el("noise-toggle").setAttribute("aria-pressed", "false");
+  state.treeB = null; state.diffByPath = {}; state.nodeIndex = {};
+  state.collapsed = {}; state.query = ""; state.groupBy = "none";
+  state.showSig = { semantic: true, uncertain: true, noise: true };
+  el("tree-search").value = ""; el("group-select").value = "none";
+  paintSegButtons();
   el("dz-a").style.borderColor = ""; el("dz-b").style.borderColor = "";
   el("meta-a").textContent = "no file loaded"; el("meta-b").textContent = "no file loaded";
   el("demo-meta").classList.add("hidden");
   el("job-id").textContent = ""; el("pipeline").classList.add("hidden");
-  ["m-skip", "m-noise", "m-sem", "m-diff"].forEach(function (id) { el(id).textContent = "--"; });
-  el("m-skip-sub").textContent = "Merkle-skipped subtrees";
-  el("m-sem-sub").textContent = "semantic regressions";
-  el("m-diff-sub").textContent = "backend engine time";
-  closeDrawer(); updateRunBtn(); setStatus("", "idle | us-east-1 | Step Functions Map-State Engine");
+  el("kpis").classList.add("hidden");
+  el("tree-toolbar").classList.add("hidden");
+  el("tree-section").classList.add("hidden");
+  renderDetail();
+  setStatus("", "idle | Step Functions Map-State Engine");
+  updateRunBtn();
 });
 
 document.querySelectorAll(".rule-btn").forEach(function (btn) {
@@ -434,41 +458,6 @@ function paintRuleButtons() {
   });
 }
 paintRuleButtons();
-
-document.querySelectorAll(".tab-btn").forEach(function (btn) {
-  btn.addEventListener("click", function () { switchTab(btn.getAttribute("data-tab")); });
-});
-function switchTab(tab) {
-  state.tab = tab;
-  document.querySelectorAll(".tab-btn").forEach(function (b) {
-    var on = b.getAttribute("data-tab") === tab;
-    b.setAttribute("aria-pressed", String(on));
-    b.className = "tab-btn font-mono text-xs px-4 py-2 rounded-lg border " +
-      (on ? "border-zinc-100 bg-zinc-100 text-zinc-950 font-semibold" : "border-edge bg-surface text-zinc-400 hover:border-zinc-500");
-  });
-  el("view-divs").classList.toggle("hidden", tab !== "divs");
-  el("view-tree").classList.toggle("hidden", tab !== "tree");
-  icons();
-}
-el("noise-toggle").addEventListener("click", function () {
-  state.showNoise = !state.showNoise;
-  el("noise-toggle").textContent = state.showNoise ? "hide noise" : "show noise";
-  el("noise-toggle").setAttribute("aria-pressed", String(state.showNoise));
-  renderDivList();
-});
-
-function openDrawer(html) {
-  el("drawer-body").innerHTML = html;
-  el("drawer").classList.remove("translate-x-full");
-  el("drawer-scrim").classList.remove("hidden");
-  icons();
-}
-function closeDrawer() {
-  el("drawer").classList.add("translate-x-full");
-  el("drawer-scrim").classList.add("hidden");
-}
-el("drawer-close").addEventListener("click", closeDrawer);
-el("drawer-scrim").addEventListener("click", closeDrawer);
 
 // 1-click benchmark demo: deterministic ~1000-span checkout trace pair.
 // Trace A = clean checkout (auth -> cart -> payment -> fulfillment).
@@ -639,10 +628,21 @@ function putToS3(uploadUrl, text) {
     if (!res.ok) return res.text().then(function (t) { throw new Error(apiError("PUT", "<s3-presigned-url>", res, t)); });
   });
 }
+function readTolerance() {
+  var v = parseFloat(el("tolerance-input").value);
+  if (isNaN(v) || v < 0) return 0.05;
+  return v > 1 ? v / 100 : v;
+}
+function readIgnoreFields() {
+  return el("ignore-fields-input").value.split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+}
 function submitJob(traceAKey, traceBKey) {
   var url = BASE_URL + "/jobs";
   var rules = Object.keys(state.rules).filter(function (r) { return state.rules[r]; });
-  var body = JSON.stringify({ traceAKey: traceAKey, traceBKey: traceBKey, rules: rules, config: { tolerance: 0.05 } });
+  var body = JSON.stringify({
+    traceAKey: traceAKey, traceBKey: traceBKey, rules: rules,
+    config: { tolerance: readTolerance(), ignoreFields: readIgnoreFields() }
+  });
   return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (res) {
     return res.text().then(function (t) {
       if (!res.ok && res.status !== 202) throw new Error(apiError("POST", url, res, t));
@@ -680,6 +680,35 @@ function getResults(jobId) {
   return page(null);
 }
 
+// KPI bar: hidden until the first compare; spinners while loading.
+function kpiLoading() {
+  el("kpis").classList.remove("hidden");
+  el("k-skip").innerHTML = '<span class="skel">…</span>';
+  el("k-skip-sub").textContent = "computing…";
+  el("k-sem").textContent = "…"; el("k-unc").textContent = "…"; el("k-noise").textContent = "…";
+  el("k-nodes").textContent = "…"; el("k-time").textContent = "…";
+}
+function renderKpis() {
+  var s = state.summary;
+  var skip = s.skipPercentage != null ? s.skipPercentage : 0;
+  el("k-skip").textContent = skip + "%";
+  el("k-skip-sub").textContent =
+    (s.nodesSkipped != null ? Number(s.nodesSkipped).toLocaleString() : "--") +
+    " skipped / " + (s.nodesVisited != null ? Number(s.nodesVisited).toLocaleString() : "--") + " compared";
+  var sem = s.semanticDiffs != null ? s.semanticDiffs : state.results.filter(function (r) { return r.significance === "semantic"; }).length;
+  var unc = s.uncertainDiffs != null ? s.uncertainDiffs : state.results.filter(function (r) { return r.significance === "uncertain"; }).length;
+  var noi = s.noiseDiffs != null ? s.noiseDiffs : state.results.filter(function (r) { return r.significance === "noise"; }).length;
+  el("k-sem").textContent = sem;
+  el("k-unc").textContent = unc;
+  el("k-noise").textContent = noi;
+  var aSize = s.traceASize != null ? Number(s.traceASize).toLocaleString() : "--";
+  var bSize = s.traceBSize != null ? Number(s.traceBSize).toLocaleString() : "--";
+  el("k-nodes").textContent = aSize + " → " + bSize + " nodes";
+  el("k-time").textContent = (s.timing && s.timing.totalMs != null ? Number(s.timing.totalMs).toLocaleString() + " ms total" : "--");
+  // Identical traces read green, not broken: full skip, zero of everything.
+  el("k-skip").className = "font-mono text-4xl font-bold mt-1 " + (sem === 0 ? "text-emerald-400" : "text-zinc-100");
+}
+
 function runDiff() {
   if (!(state.fileA && state.fileA.valid && state.fileB && state.fileB.valid)) {
     toast("Both Trace A and Trace B must be valid JSON traces before running.");
@@ -687,7 +716,11 @@ function runDiff() {
   }
   el("run-btn").disabled = true;
   el("demo-btn").disabled = true;
-  setStatus("working", "working | us-east-1 | Step Functions Map-State Engine");
+  setStatus("working", "working | Step Functions Map-State Engine");
+  kpiLoading();
+  el("tree-toolbar").classList.add("hidden");
+  el("tree-section").classList.add("hidden");
+  renderDetail();
   stageState = { upload: "active" };
   showPipeline(null);
   var jobId = null;
@@ -736,11 +769,12 @@ function runDiff() {
     .then(function (results) {
       state.results = results || [];
       state.selected = -1;
+      state.collapsed = {};
       stageState = { upload: "done", orch: "done", map: "done", prune: "done" };
       renderPipeline();
       renderAll();
-      setStatus("done", "completed | us-east-1 | Step Functions Map-State Engine");
-      document.getElementById("metrics").scrollIntoView({ behavior: "smooth", block: "nearest" });
+      setStatus("done", "completed | Step Functions Map-State Engine");
+      document.getElementById("kpis").scrollIntoView({ behavior: "smooth", block: "nearest" });
     })
     .catch(function (e) {
       toast(e instanceof Error ? e.message : String(e));
@@ -753,113 +787,98 @@ function runDiff() {
 }
 el("run-btn").addEventListener("click", runDiff);
 
-// Rendering: metrics, divergence cards, visual tree, inspector drawer.
+// ---- Unified diff tree ------------------------------------------------
+// One tree rooted at the common root, colored per node. Removed nodes don't
+// exist in Trace B, so they render inline under their parent anchor in B
+// (their pathA minus the last segment locates that anchor).
 function pathOf(r) { return r.pathB || r.pathA || []; }
 function pathKey(r) { return pathOf(r).join(""); }
+function breadcrumbs(r) {
+  // Display path: where the node actually lives.
+  if (r.type === "removed") return r.pathA || r.pathB || [];
+  return r.pathB || r.pathA || [];
+}
 
 function renderAll() {
-  var s = state.summary;
-  el("m-skip").textContent = (s.skipPercentage != null ? s.skipPercentage + "%" : "--");
-  el("m-skip-sub").textContent = (s.nodesSkipped != null ? Number(s.nodesSkipped).toLocaleString() : "--") +
-    " skipped / " + (s.traceASize != null ? Number(s.traceASize).toLocaleString() : "--") + " nodes";
-  el("m-noise").textContent = (s.noiseDiffs != null ? Number(s.noiseDiffs).toLocaleString() : "--");
-  el("m-sem").textContent = (s.semanticDiffs != null ? s.semanticDiffs : state.results.filter(function (r) { return r.significance === "semantic"; }).length);
-  el("m-sem-sub").textContent = (s.uncertainDiffs != null ? s.uncertainDiffs : "--") + " uncertain | " + state.results.length + " total";
-  el("m-diff").textContent = (s.timing && s.timing.diffMs != null ? Number(s.timing.diffMs).toLocaleString() + " ms" : "--");
-  el("m-diff-sub").textContent = "parse " + (s.timing ? s.timing.parseMs : "--") + " ms | merkle " + (s.timing ? s.timing.merkleBuildMs : "--") + " ms";
-
+  renderKpis();
+  el("tree-toolbar").classList.remove("hidden");
+  el("tree-section").classList.remove("hidden");
+  paintSegButtons();
   state.diffByPath = {};
   state.results.forEach(function (r, i) {
     var k = pathKey(r);
     if (!state.diffByPath[k]) state.diffByPath[k] = [];
     state.diffByPath[k].push(i);
   });
-  state.expanded = { "": true };
-  state.results.forEach(function (r) {
-    if (r.significance !== "semantic") return;
-    var p = pathOf(r);
-    for (var d = 0; d < p.length; d++) state.expanded[p.slice(0, d).join("")] = true;
-  });
   state.treeB = state.fileB.tree;
-  renderDivList();
   renderTree();
-}
-
-function visibleResults() {
-  return state.results.map(function (r, i) { return [r, i]; }).filter(function (x) {
-    if (x[0].significance === "semantic") return true;
-    return state.showNoise;
-  });
-}
-function sigBadge(sig) {
-  if (sig === "semantic") return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-rose-500 text-rose-400">SEMANTIC</span>';
-  if (sig === "noise") return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-500 text-amber-400">NOISE</span>';
-  return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-zinc-600 text-zinc-400">UNCERTAIN</span>';
-}
-function typeBadge(t) {
-  var c = t === "added" ? "border-emerald-600 text-emerald-400" : t === "removed" ? "border-rose-600 text-rose-400" : "border-zinc-600 text-zinc-300";
-  return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border ' + c + '">' + esc(String(t || "modified").toUpperCase()) + "</span>";
-}
-function attrTable(nodeA, nodeB) {
-  if (!nodeA && !nodeB) return '<p class="text-zinc-600">No span attributes returned for this diff.</p>';
-  var keys = {};
-  [nodeA, nodeB].forEach(function (n) {
-    var a = (n && n.attributes) || {};
-    Object.keys(a).forEach(function (k) { keys[k] = true; });
-  });
-  var rows = Object.keys(keys).sort().map(function (k) {
-    var va = nodeA && nodeA.attributes ? nodeA.attributes[k] : undefined;
-    var vb = nodeB && nodeB.attributes ? nodeB.attributes[k] : undefined;
-    var sa = va === undefined ? "--" : JSON.stringify(va);
-    var sb = vb === undefined ? "--" : JSON.stringify(vb);
-    var changed = sa !== sb;
-    return '<tr class="' + (changed ? "bg-rose-950/30" : "") + '"><td class="py-1 pr-3 text-zinc-400">' + esc(k) + "</td>"
-      + '<td class="py-1 pr-3 break-all ' + (changed ? "text-rose-300" : "text-zinc-500") + '">' + esc(sa) + "</td>"
-      + '<td class="py-1 break-all ' + (changed ? "text-rose-300" : "text-zinc-500") + '">' + esc(sb) + "</td></tr>";
-  }).join("");
-  return '<table class="w-full text-left"><thead><tr class="text-zinc-600 text-[10px] uppercase">'
-    + "<th class='py-1 pr-3'>attribute</th><th class='py-1 pr-3'>Trace A</th><th class='py-1'>Trace B</th></tr></thead>"
-    + "<tbody>" + rows + "</tbody></table>";
-}
-function renderDivList() {
-  var host = el("div-list");
-  var items = visibleResults().filter(function (x) { return x[0].significance === "semantic" || state.showNoise; });
-  var semOnly = visibleResults().filter(function (x) { return x[0].significance === "semantic"; });
-  items = state.showNoise ? visibleResults() : semOnly;
-  if (items.length === 0) {
-    host.innerHTML = '<div class="border border-dashed border-edge rounded-xl p-10 text-center font-mono text-xs text-zinc-500">Backend returned zero divergences in this view.</div>';
-    return;
-  }
-  host.innerHTML = items.map(function (x) {
-    var r = x[0], idx = x[1];
-    var crumb = esc(pathOf(r).join("  ›  ") || "(root)");
-    var sel = idx === state.selected ? " selected border-rose-700" : "border-edge";
-    var left = r.significance === "semantic" ? "border-l-rose-500" : r.significance === "noise" ? "border-l-amber-500" : "border-l-zinc-600";
-    var detail = idx === state.selected
-      ? '<div class="mt-3 pt-3 border-t border-edge">' + attrTable(r.nodeA, r.nodeB)
-        + (r.classifiedBy ? '<div class="mt-2 text-zinc-600">classified by <span class="text-zinc-400">' + esc(r.classifiedBy) + "</span></div>" : "")
-        + "</div>"
-      : "";
-    return '<div class="card-div rise cursor-pointer border border-l-2 ' + sel + " " + left + ' bg-surface rounded-lg px-4 py-3" data-idx="' + idx + '">'
-      + '<div class="flex items-center gap-2 flex-wrap">' + typeBadge(r.type) + sigBadge(r.significance)
-      + '<span class="font-mono text-[11px] text-zinc-500 ml-auto">depth ' + r.depth + " | subtree " + r.affectedSubtreeSize + "</span></div>"
-      + '<div class="font-mono text-[11px] text-zinc-500 mt-1.5 break-all">' + crumb + "</div>"
-      + '<div class="text-[13px] text-zinc-200 mt-1">' + esc(r.description || "") + "</div>"
-      + detail + "</div>";
-  }).join("");
-  host.querySelectorAll(".card-div").forEach(function (c) {
-    c.addEventListener("click", function () {
-      var idx = Number(c.getAttribute("data-idx"));
-      state.selected = (state.selected === idx ? -1 : idx);
-      renderDivList();
-      if (state.tab === "tree") renderTree();
-      openNodeDrawer(idx);
-    });
-  });
+  renderDetail();
   icons();
 }
 
-// Tree annotation over Trace B, keyed by backend breadcrumb paths.
+// Significance visibility (3-way filter) + search + grouping state.
+function sigOf(r) { return r.significance === "uncertain" ? "uncertain" : r.significance === "noise" ? "noise" : "semantic"; }
+function matchQuery(text) {
+  var q = state.query.trim().toLowerCase();
+  if (!q) return true;
+  return String(text).toLowerCase().indexOf(q) >= 0;
+}
+function groupKeyFor(label, type) {
+  if (state.groupBy === "service") {
+    var svc = String(label).split("|")[0].trim();
+    return svc || "(unlabeled)";
+  }
+  if (state.groupBy === "type") return String(type || "span");
+  return "";
+}
+
+function paintSegButtons() {
+  var counts = { semantic: 0, uncertain: 0, noise: 0 };
+  state.results.forEach(function (r) { counts[sigOf(r)]++; });
+  document.querySelectorAll(".seg-btn").forEach(function (b) {
+    var sig = b.getAttribute("data-sig");
+    var on = !!state.showSig[sig];
+    b.setAttribute("aria-pressed", String(on));
+    var base = "seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border ";
+    var color = sig === "semantic" ? "border-orange-700 text-orange-400"
+      : sig === "uncertain" ? "border-purple-700 text-purple-400"
+      : "border-amber-800 text-amber-500";
+    b.className = base + color;
+    b.textContent = (sig === "semantic" ? "~ " : sig === "uncertain" ? "? " : "≈ ") + sig + " (" + counts[sig] + ")";
+  });
+}
+document.querySelectorAll(".seg-btn").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    var sig = btn.getAttribute("data-sig");
+    state.showSig[sig] = !state.showSig[sig];
+    paintSegButtons();
+    renderTree();
+  });
+});
+el("tree-search").addEventListener("input", function () {
+  state.query = el("tree-search").value;
+  renderTree();
+});
+el("group-select").addEventListener("change", function () {
+  state.groupBy = el("group-select").value;
+  renderTree();
+});
+
+// Row model for one tree node: state, own diffs, collapsed-children summary.
+function rowState(own, hasSemBelow, hasNoiseBelow) {
+  if (own.length) {
+    var first = own[0];
+    if (first.type === "added") return "added";
+    if (first.type === "removed") return "removed";
+    if (first.significance === "uncertain") return "uncertain";
+    if (first.significance === "noise") return "noise";
+    return "semantic";
+  }
+  if (hasSemBelow) return "below-sem";
+  if (hasNoiseBelow) return "below-noise";
+  return "unchanged";
+}
+
 function annotate(node, trail) {
   var key = trail.join("");
   var own = state.diffByPath[key] || [];
@@ -871,86 +890,270 @@ function annotate(node, trail) {
     if (info.hasNoise) hasNoise = true;
   });
   own.forEach(function (i) {
-    if (state.results[i].significance === "semantic") hasSem = true; else hasNoise = true;
+    var s = sigOf(state.results[i]);
+    if (s === "semantic" || s === "uncertain") hasSem = true; else hasNoise = true;
   });
   state.nodeIndex[key] = { node: node, own: own };
   return { node: node, key: key, own: own, kids: kids, hasSem: hasSem, hasNoise: hasNoise, total: total };
 }
+
+function stateDot(st) {
+  if (st === "added") return "bg-emerald-500 glow-emerald";
+  if (st === "removed") return "bg-rose-500 glow-rose";
+  if (st === "semantic") return "bg-orange-500 pulse-red";
+  if (st === "uncertain") return "border border-dashed border-purple-400";
+  if (st === "noise") return "bg-amber-500 glow-amber";
+  if (st === "below-sem") return "bg-orange-500";
+  if (st === "below-noise") return "bg-amber-500";
+  return "bg-zinc-700";
+}
+function stateIcon(st) {
+  if (st === "added") return "+";
+  if (st === "removed") return "−";
+  if (st === "semantic") return "~";
+  if (st === "uncertain") return "?";
+  if (st === "noise") return "≈";
+  return "·";
+}
+function hl(text) {
+  var q = state.query.trim();
+  if (!q) return esc(text);
+  var lower = String(text).toLowerCase();
+  var idx = lower.indexOf(q.toLowerCase());
+  if (idx < 0) return esc(text);
+  return esc(String(text).slice(0, idx)) + "<mark class=\"hl\">" + esc(String(text).slice(idx, idx + q.length)) + "</mark>" + esc(String(text).slice(idx + q.length));
+}
+
 function renderTree() {
   var host = el("tree");
   if (!state.treeB) {
-    host.innerHTML = '<div class="p-8 text-center font-mono text-xs text-zinc-600">Run a diff to visualize the annotated call tree.</div>';
+    host.innerHTML = '<div class="p-8 text-center font-mono text-xs text-zinc-600">Run a diff to visualize the unified tree.</div>';
     return;
   }
   var info = annotate(state.treeB, [state.treeB.label]);
+  // Inline removed nodes under their parent anchor in B. When the anchor
+  // path doesn't exist in B (e.g. differing root labels), fall back to the
+  // root — a removed span with no B-side home still deserves a row, with
+  // its full A-path breadcrumb intact.
+  var removedByParent = {};
+  var removedOrphan = [];
+  state.results.forEach(function (r, i) {
+    if (r.type !== "removed" || !state.showSig[sigOf(r)]) return;
+    var anchor = (r.pathA || []).slice(0, -1).join("");
+    if (anchor && !state.nodeIndex[anchor]) {
+      removedOrphan.push(i);
+      return;
+    }
+    (removedByParent[anchor] = removedByParent[anchor] || []).push(i);
+  });
   var html = "";
+  var visible = 0, hiddenByFilter = 0;
+
+  function subtreeMatches(ni, isRoot) {
+    if (!state.query.trim()) return true;
+    if (matchQuery(ni.node.label)) return true;
+    for (var i = 0; i < ni.own.length; i++) {
+      if (matchQuery(state.results[ni.own[i]].description || "")) return true;
+    }
+    if (isRoot) {
+      // Orphaned removals live outside the B tree — match them explicitly
+      // or a query for a removed-only label would hide the whole tree.
+      for (var q = 0; q < removedOrphan.length; q++) {
+        var rr = state.results[removedOrphan[q]];
+        var rl = (rr.nodeA && rr.nodeA.label) || "";
+        if (matchQuery(rl) || matchQuery(rr.description || "")) return true;
+      }
+    }
+    for (var k = 0; k < ni.kids.length; k++) {
+      if (subtreeMatches(ni.kids[k], false)) return true;
+    }
+    return false;
+  }
+
   function emit(ni, depth) {
-    var open = state.expanded[ni.key];
-    if (open === undefined) open = depth < 2 || ni.hasSem;
-    var isOwnSem = ni.own.some(function (i) { return state.results[i].significance === "semantic"; });
-    var isOwnNoise = ni.own.length > 0 && !isOwnSem;
-    var dot = ni.own.length ? (isOwnSem ? "bg-rose-500 glow-rose pulse-red" : "bg-amber-500 glow-amber")
-      : (ni.hasSem ? "bg-rose-500" : (ni.hasNoise ? "bg-amber-500" : "bg-emerald-500"));
-    var pill = ni.own.length
-      ? (isOwnSem
-        ? '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-rose-500/15 border border-rose-500 text-rose-400">DIVERGENT</span>'
-        : '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-amber-500/10 border border-amber-500 text-amber-400">NOISE</span>')
-      : (!ni.hasSem && !ni.hasNoise
-        ? '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-emerald-700 text-emerald-500">PRUNED ' + ni.total + "</span>"
-        : "");
-    var caret = ni.node.children.length ? (open ? "-" : "+") : "·";
+    var st = rowState(ni.own, ni.hasSem, ni.hasNoise);
+    // Significance filter: hide the class entirely (except structural anchors).
+    if ((st === "noise" || st === "below-noise") && !state.showSig.noise) { hiddenByFilter++; return; }
+    if ((st === "uncertain") && !state.showSig.uncertain) { hiddenByFilter++; return; }
+    if (st !== "unchanged" && st !== "below-sem" && st !== "below-noise") {
+      var vis = sigOf(state.results[ni.own[0]]);
+      if (!state.showSig[vis]) { hiddenByFilter++; return; }
+    }
+    if (!subtreeMatches(ni, depth === 0)) { hiddenByFilter++; return; }
+    visible++;
+
+    var isCollapsedRegion = (st === "unchanged" || st === "noise") && ni.total > 1;
+    var userOpen = state.collapsed[ni.key];
+    // Defaults per spec: unchanged + noise collapse; everything else expands.
+    var open = userOpen === undefined ? !(st === "unchanged" || st === "noise") : userOpen;
+
+    if (isCollapsedRegion && !open) {
+      var label = st === "noise"
+        ? "≈ " + (ni.total - 1) + " noise-only spans — judged safe, click to expand"
+        : "⌄ " + (ni.total - 1) + " unchanged spans — Merkle-skipped, click to expand";
+      html += '<div class="tnode-row collapsed-row flex items-center gap-2 rounded cursor-pointer px-3 py-1.5 my-0.5 font-mono text-[11px] text-zinc-500" data-key="' + esc(ni.key) + '" data-act="toggle" style="margin-left:' + (6 + depth * 14) + 'px">'
+        + esc(label) + "</div>";
+      return;
+    }
+
+    var ownIdx = ni.own.length ? ni.own[0] : -1;
     var sel = ni.own.indexOf(state.selected) >= 0 ? " selected" : "";
-    var firstDiff = ni.own.length ? ni.own[0] : -1;
+    var dot = stateDot(st);
+    var pill = "";
+    if (st === "added") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-emerald-500/15 border border-emerald-500 text-emerald-400">ADDED</span>';
+    else if (st === "removed") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-rose-500/15 border border-rose-500 text-rose-400">REMOVED</span>';
+    else if (st === "semantic") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-orange-500/15 border border-orange-500 text-orange-400">SEMANTIC</span>';
+    else if (st === "uncertain") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-purple-500/10 border border-dashed border-purple-400 text-purple-300">UNCERTAIN</span>';
+    else if (st === "noise") pill = '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-amber-700 text-amber-500">NOISE</span>';
+    var sizeBadge = ni.total > 1 && ni.own.length
+      ? '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-edge text-zinc-500">covers ' + ni.total + " nodes</span>"
+      : "";
     var dur = ni.node.attributes && ni.node.attributes.duration_ms != null ? esc(ni.node.attributes.duration_ms) + "ms" : "";
-    html += '<div class="tnode-row flex items-center gap-2 h-6 pr-2 rounded cursor-pointer' + sel + '" data-key="' + esc(ni.key) + '" data-diff="' + firstDiff + '" style="padding-left:' + (6 + depth * 14) + 'px">'
-      + '<span class="w-3.5 text-center text-zinc-600 shrink-0">' + caret + '</span>'
+    var extra = st === "uncertain" ? " uncertain-outline" : "";
+    html += '<div class="tnode-row flex items-center gap-2 pr-2 rounded cursor-pointer' + sel + extra + '" data-key="' + esc(ni.key) + '" data-diff="' + ownIdx + '" style="padding-left:' + (6 + depth * 14) + 'px">'
       + '<span class="w-2 h-2 rounded-full shrink-0 ' + dot + '"></span>'
-      + '<span class="truncate text-zinc-200">' + esc(ni.node.label) + "</span>" + pill
-      + '<span class="ml-auto text-[10px] text-zinc-600 shrink-0 pl-2">' + esc(ni.node.type) + (dur ? " | " + dur : "") + "</span></div>";
-    if (open && ni.node.children.length) {
-      html += '<div class="tree-children">';
-      ni.kids.forEach(function (k) { emit(k, depth + 1); });
-      html += "</div>";
+      + '<span class="font-mono text-[11px] font-bold text-zinc-600 w-3 shrink-0">' + stateIcon(st) + "</span>"
+      + '<span class="truncate text-zinc-200 font-mono text-xs">' + hl(ni.node.label) + "</span>" + pill + sizeBadge
+      + '<span class="ml-auto text-[10px] text-zinc-600 shrink-0 pl-2 font-mono">' + esc(ni.node.type) + (dur ? " | " + dur : "") + "</span></div>";
+
+    // Removed children render inline under their B-side parent anchor.
+    // Orphaned removals (no anchor in B) attach to the root instead.
+    var removed = removedByParent[ni.key] || [];
+    if (depth === 0) removed = removed.concat(removedOrphan);
+    for (var ri = 0; ri < removed.length; ri++) {
+      var r = state.results[removed[ri]];
+      var rLabel = (r.nodeA && r.nodeA.label) || (r.pathA && r.pathA[r.pathA.length - 1]) || "(removed)";
+      if (!matchQuery(rLabel) && !matchQuery(r.description || "")) { hiddenByFilter++; continue; }
+      visible++;
+      var rSel = removed[ri] === state.selected ? " selected" : "";
+      html += '<div class="tnode-row flex items-center gap-2 pr-2 rounded cursor-pointer' + rSel + '" data-diff="' + removed[ri] + '" style="padding-left:' + (6 + (depth + 1) * 14) + 'px">'
+        + '<span class="w-2 h-2 rounded-full shrink-0 ' + stateDot("removed") + '"></span>'
+        + '<span class="font-mono text-[11px] font-bold text-zinc-600 w-3 shrink-0">−</span>'
+        + '<span class="truncate text-zinc-400 line-through font-mono text-xs">' + hl(rLabel) + "</span>"
+        + '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-rose-500/15 border border-rose-500 text-rose-400">REMOVED</span>'
+        + "</div>";
+    }
+
+    // Grouped rendering for wide flat fan-outs (log windows): sticky headers.
+    var lastGroup = null;
+    for (var ci = 0; ci < ni.kids.length; ci++) {
+      var gk = groupKeyFor(ni.kids[ci].node.label, ni.kids[ci].node.type);
+      if (gk && gk !== lastGroup) {
+        lastGroup = gk;
+        html += '<div class="font-mono text-[10px] uppercase tracking-widest text-zinc-600 px-3 pt-2" style="margin-left:' + (6 + (depth + 1) * 14) + 'px">' + esc(gk) + "</div>";
+      }
+      emit(ni.kids[ci], depth + 1);
     }
   }
+
   emit(info, 0);
-  host.innerHTML = html;
+  el("tree-count").textContent = visible.toLocaleString() + " rows" + (hiddenByFilter ? " · " + hiddenByFilter + " filtered" : "");
+  host.innerHTML = html || '<div class="p-8 text-center font-mono text-xs text-zinc-600">No rows match the current filter.</div>';
   host.querySelectorAll(".tnode-row").forEach(function (row) {
     row.addEventListener("click", function () {
-      var k = row.getAttribute("data-key");
       var di = Number(row.getAttribute("data-diff"));
-      if (di >= 0) { state.selected = di; openNodeDrawer(di); }
-      else { state.expanded[k] = !(state.expanded[k] === undefined ? true : state.expanded[k]); }
-      renderTree();
+      var act = row.getAttribute("data-act");
+      if (act === "toggle") {
+        var k = row.getAttribute("data-key");
+        state.collapsed[k] = !(state.collapsed[k] === undefined ? false : state.collapsed[k]);
+        renderTree();
+        return;
+      }
+      if (di >= 0) { state.selected = di; renderTree(); renderDetail(); }
+      else {
+        var kk = row.getAttribute("data-key");
+        state.collapsed[kk] = !(state.collapsed[kk] === undefined ? true : state.collapsed[kk]);
+        renderTree();
+      }
     });
   });
-}
-function openNodeDrawer(idx) {
-  var r = state.results[idx];
-  if (!r) return;
-  var entry = state.nodeIndex[pathKey(r)];
-  var treeNode = entry ? entry.node : (r.nodeB || r.nodeA);
-  var attrs = (treeNode && treeNode.attributes) || {};
-  var dur = attrs.duration_ms != null ? esc(attrs.duration_ms) + " ms" : "--";
-  var opName = esc((treeNode && treeNode.label) || (pathOf(r).slice(-1)[0]) || "(root)");
-  openDrawer(
-    '<div class="flex items-center gap-2 flex-wrap">' + typeBadge(r.type) + sigBadge(r.significance) + "</div>"
-    + '<h3 class="text-sm font-semibold text-zinc-100 mt-3 break-all">' + opName + "</h3>"
-    + '<div class="text-zinc-500 mt-1 break-all">' + esc(pathOf(r).join("  ›  ")) + "</div>"
-    + '<div class="grid grid-cols-2 gap-2 mt-4">'
-    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">duration</div><div class="text-zinc-200 mt-0.5">' + dur + "</div></div>"
-    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">depth</div><div class="text-zinc-200 mt-0.5">' + r.depth + "</div></div>"
-    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">affected subtree</div><div class="text-zinc-200 mt-0.5">' + r.affectedSubtreeSize + " spans</div></div>"
-    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">rule</div><div class="text-zinc-200 mt-0.5">' + esc(r.classifiedBy || "--") + "</div></div>"
-    + "</div>"
-    + '<p class="text-zinc-300 text-[13px] font-sans mt-4">' + esc(r.description || "") + "</p>"
-    + '<div class="mt-4 pt-3 border-t border-edge"><div class="text-[10px] uppercase text-zinc-600 mb-2">attribute diff | Trace A vs Trace B</div>'
-    + attrTable(r.nodeA, r.nodeB) + "</div>"
-  );
+  icons();
 }
 
+function sigBadge(sig) {
+  if (sig === "semantic") return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-orange-500 text-orange-400">SEMANTIC</span>';
+  if (sig === "noise") return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-500 text-amber-400">NOISE</span>';
+  if (sig === "uncertain") return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-dashed border-purple-400 text-purple-300">UNCERTAIN</span>';
+  return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-zinc-600 text-zinc-400">UNKNOWN</span>';
+}
+function typeBadge(t) {
+  var c = t === "added" ? "border-emerald-600 text-emerald-400" : t === "removed" ? "border-rose-600 text-rose-400" : "border-zinc-600 text-zinc-300";
+  return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border ' + c + '">' + esc(String(t || "modified").toUpperCase()) + "</span>";
+}
+function attrTable(nodeA, nodeB, highlight) {
+  if (!nodeA && !nodeB) return '<p class="text-zinc-600">No span attributes returned for this diff.</p>';
+  var keys = {};
+  [nodeA, nodeB].forEach(function (n) {
+    var a = (n && n.attributes) || {};
+    Object.keys(a).forEach(function (k) { keys[k] = true; });
+  });
+  function sideTable(node, other, side) {
+    var rows = Object.keys(keys).sort().map(function (k) {
+      var v = node && node.attributes ? node.attributes[k] : undefined;
+      var o = other && other.attributes ? other.attributes[k] : undefined;
+      var s = v === undefined ? "--" : JSON.stringify(v);
+      var changed = highlight && s !== (o === undefined ? "--" : JSON.stringify(o));
+      return '<tr class="' + (changed ? "bg-rose-950/30" : "") + '"><td class="py-1 pr-3 text-zinc-400">' + esc(k) + '</td>'
+        + '<td class="py-1 pr-3 break-all font-mono ' + (changed ? "text-rose-300" : "text-zinc-500") + '">' + esc(s) + "</td></tr>";
+    }).join("");
+    return '<table class="w-full text-left"><thead><tr class="text-zinc-600 text-[10px] uppercase">'
+      + "<th class='py-1 pr-3'>attribute</th><th class='py-1'>" + side + "</th></tr></thead>"
+      + "<tbody>" + rows + "</tbody></table>";
+  }
+  return '<div class="detail-grid">' + sideTable(nodeA, nodeB, "Trace A") + sideTable(nodeB, nodeA, "Trace B") + "</div>";
+}
+
+function renderDetail() {
+  var host = el("detail-body");
+  var r = state.results[state.selected];
+  if (!r) {
+    host.innerHTML = '<div class="text-center py-10">'
+      + '<i data-lucide="mouse-pointer-click" class="w-6 h-6 text-zinc-600 mx-auto mb-2"></i>'
+      + '<p class="font-mono text-xs text-zinc-500">Select a diff to inspect</p>'
+      + '<p class="font-mono text-[11px] text-zinc-600 mt-1">Click any row in the unified tree.</p></div>';
+    icons();
+    return;
+  }
+  var sig = sigOf(r);
+  var crumb = esc(breadcrumbs(r).join("  ›  ") || "(root)");
+  var head = '<div class="flex items-center gap-2 flex-wrap">' + typeBadge(r.type) + sigBadge(sig) + "</div>"
+    + '<h3 class="text-sm font-semibold text-zinc-100 mt-3 break-all font-mono">' + esc(opLabel(r)) + "</h3>"
+    + '<div class="text-zinc-500 mt-1 break-all font-mono text-[11px]">' + crumb + "</div>";
+  var ruleTag = r.classifiedBy
+    ? '<div class="mt-3"><span class="font-mono text-[10px] px-2 py-1 rounded-md border border-edge bg-surface2 text-zinc-400">via ' + esc(r.classifiedBy) + "</span></div>"
+    : "";
+  var meta = '<div class="grid grid-cols-2 gap-2 mt-3">'
+    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">depth</div><div class="text-zinc-200 mt-0.5 font-mono">' + r.depth + "</div></div>"
+    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">affected subtree</div><div class="text-zinc-200 mt-0.5 font-mono">' + r.affectedSubtreeSize + " spans</div></div>"
+    + "</div>";
+  var body = '<p class="text-zinc-300 text-[13px] mt-3">' + esc(r.description || "") + "</p>";
+  if (sig === "uncertain") {
+    body += '<div class="mt-3 border border-dashed border-purple-500 rounded-lg p-3 font-mono text-[11px] text-purple-300">Not fully explored — depth limit reached. Treat as needing judgment, not a resolved verdict.</div>';
+  }
+  var attrs = "";
+  if (r.type === "added") {
+    attrs = '<div class="mt-3 pt-3 border-t border-edge"><div class="text-[10px] uppercase text-zinc-600 mb-2">Trace B attributes · +' + r.affectedSubtreeSize + ' descendant nodes</div>' + attrTable(null, r.nodeB, false) + "</div>";
+  } else if (r.type === "removed") {
+    attrs = '<div class="mt-3 pt-3 border-t border-edge"><div class="text-[10px] uppercase text-zinc-600 mb-2">Trace A attributes · gone from B</div>' + attrTable(r.nodeA, null, false) + "</div>";
+  } else if (sig === "noise") {
+    attrs = '<div class="mt-3 pt-3 border-t border-edge opacity-80"><div class="text-[10px] uppercase text-zinc-600 mb-2">attributes (judged safe)</div>' + attrTable(r.nodeA, r.nodeB, false) + "</div>";
+  } else {
+    attrs = '<div class="mt-3 pt-3 border-t border-edge"><div class="text-[10px] uppercase text-zinc-600 mb-2">attribute diff | Trace A vs Trace B</div>' + attrTable(r.nodeA, r.nodeB, true) + "</div>";
+  }
+  host.innerHTML = head + ruleTag + meta + body + attrs;
+  icons();
+}
+function opLabel(r) {
+  if (r.nodeA && r.nodeA.label) return r.nodeA.label;
+  if (r.nodeB && r.nodeB.label) return r.nodeB.label;
+  var p = breadcrumbs(r);
+  return p.length ? p[p.length - 1] : "(root)";
+}
+
+paintSegButtons();
+renderDetail();
 icons();
-setStatus("", "idle | us-east-1 | Step Functions Map-State Engine");
+setStatus("", "idle | Step Functions Map-State Engine");
 </script>
 </main>
 </body>
