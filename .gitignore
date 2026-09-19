@@ -18,6 +18,8 @@ samconfig.toml
 # OS files
 .DS_Store
 Thumbs.db
+.env
+.env.local
 
 # Editor
 .vscode/
@@ -30,3 +32,5 @@ bun.lockb
 
 # Logs
 *.log
+
+.env

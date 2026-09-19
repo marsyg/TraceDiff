@@ -34,7 +34,6 @@ Globals:
         JOBS_TABLE_NAME: !Ref JobsTable
         RESULTS_TABLE_NAME: !Ref ResultsTable
         TRACES_BUCKET_NAME: !Ref TracesBucket
-        STATE_MACHINE_ARN: !Ref DiffStateMachine
         CORS_ORIGIN: !Ref CorsOrigin
 
 Resources:
@@ -135,6 +134,9 @@ Resources:
       CodeUri: ../dist/lambda/
       Handler: submit-job.handler
       Description: Receive job request, persist PENDING state, and start Step Functions execution
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref DiffStateMachine
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref JobsTable

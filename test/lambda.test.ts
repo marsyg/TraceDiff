@@ -165,8 +165,11 @@ describe("Lambda — submit-job handler", () => {
   });
 
   test("returns 202 and creates job when payload is valid", async () => {
+    // Both AWS clients are stubbed: Bun auto-loads a deployment .env if one
+    // exists, which would otherwise flip the handler into the live Step
+    // Functions branch (STATE_MACHINE_ARN set) and fail offline.
     const origSend = docClient.send;
-    const origSfn = sfnClient.send;
+    const origSfnSend = sfnClient.send;
     docClient.send = (async () => ({})) as unknown as typeof docClient.send;
     sfnClient.send = (async () => ({
       executionArn: "arn:aws:states:mock",
@@ -189,7 +192,7 @@ describe("Lambda — submit-job handler", () => {
       expect(body.status).toBe("PENDING");
     } finally {
       docClient.send = origSend;
-      sfnClient.send = origSfn;
+      sfnClient.send = origSfnSend;
     }
   });
 });

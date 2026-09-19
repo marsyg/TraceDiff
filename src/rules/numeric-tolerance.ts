@@ -18,22 +18,35 @@ export interface NumericToleranceRuleConfig {
  *    boundary artifacts (two values within tolerance can straddle a bucket
  *    edge), so classify() is the correctness backstop.
  */
+/** Log-space bucket width for a tolerance. Single formula shared by the rule and the fused fast path. */
+export function bucketLogBucketSize(relativeTolerance: number): number {
+  return 2 * Math.log1p(relativeTolerance);
+}
+
 export const makeNumericTolerance = (options: NumericToleranceRuleConfig): EquivalenceRule => {
   const relativeTolerance = options.relativeTolerance ?? 0.05;
-  const logBucketSize = 2 * Math.log1p(relativeTolerance);
+  const logBucketSize = bucketLogBucketSize(relativeTolerance);
 
   return {
     name: "numeric-tolerance",
     description: `Numeric tolerance ±${(relativeTolerance * 100).toFixed(1)}%`,
+    fuse: { kind: "numeric-tolerance", tolerance: relativeTolerance },
     normalize(node) {
+      // Return the node untouched when nothing needs bucketing: the Merkle
+      // builder calls every rule on every node, so an unconditional spread
+      // here costs one object + one attribute map per node (~200K/node-pair
+      // at 100K traces) for zero benefit on number-free nodes.
+      let mutated = false;
       const attributes: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(node.attributes)) {
-        attributes[key] =
-          typeof value === "number" && Number.isFinite(value) && value !== 0
-            ? bucketNumber(value, logBucketSize)
-            : value;
+        if (typeof value === "number" && Number.isFinite(value) && value !== 0) {
+          attributes[key] = bucketNumber(value, logBucketSize);
+          mutated = true;
+        } else {
+          attributes[key] = value;
+        }
       }
-      return { ...node, attributes };
+      return mutated ? { ...node, attributes } : node;
     },
     classify(diff: RawDiff) {
       const { valueA, valueB } = diff;
@@ -56,7 +69,7 @@ export const makeNumericTolerance = (options: NumericToleranceRuleConfig): Equiv
  * Two values a, b with |a-b|/max(|a|,|b|) ≤ tolerance usually map to the
  * same bucket (modulo boundary effects, corrected in classify()).
  */
-function bucketNumber(value: number, logBucketSize: number): number {
+export function bucketNumber(value: number, logBucketSize: number): number {
   const sign = value < 0 ? -1 : 1;
   const abs = Math.abs(value);
   const bucket = Math.round(Math.log(abs) / logBucketSize);

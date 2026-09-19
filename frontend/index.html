@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TraceDiff - Distributed Trace Diffing Engine</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { oled: "#09090b", surface: "#121215", surface2: "#18181b", edge: "#27272a" },
+  fontFamily: {
+    sans: ["Inter", "Geist", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+    mono: ["JetBrains Mono", "SF Mono", "ui-monospace", "Menlo", "Consolas", "monospace"]
+  }
+}}};
+</script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  html, body { background: #09090b; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: #09090b; }
+  ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 6px; border: 2px solid #09090b; }
+  ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+  .glow-emerald { box-shadow: 0 0 10px rgba(16,185,129,.55); }
+  .glow-rose { box-shadow: 0 0 12px rgba(244,63,94,.6); }
+  .glow-amber { box-shadow: 0 0 10px rgba(245,158,11,.5); }
+  @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .dot-live { animation: pulse-dot 1.1s ease-in-out infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { animation: spin .8s linear infinite; }
+  @keyframes flow { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  .stage-active {
+    background: linear-gradient(100deg, #18181b 30%, #2a2517 50%, #18181b 70%);
+    background-size: 200% 100%;
+    animation: flow 1.6s linear infinite;
+    border-color: #eab308 !important;
+  }
+  @keyframes heartbeat { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.35); opacity: .7; } }
+  .pulse-red { animation: heartbeat 1.4s ease-in-out infinite; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .rise { animation: rise .45s ease both; }
+  .rise-1 { animation-delay: .05s; } .rise-2 { animation-delay: .12s; }
+  .rise-3 { animation-delay: .19s; } .rise-4 { animation-delay: .26s; }
+  [data-tip] { position: relative; }
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+    background: #18181b; border: 1px solid #3f3f46; color: #e4e4e7;
+    font-size: 11px; padding: 6px 10px; border-radius: 6px;
+    white-space: nowrap; z-index: 50; pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.6);
+  }
+  .tree-children { border-left: 1px solid #27272a; margin-left: 11px; padding-left: 14px; }
+  .tnode-row { transition: background .15s ease; }
+  .tnode-row:hover { background: #18181b; }
+  .tnode-row.selected { background: #1c1917; box-shadow: inset 2px 0 0 #f43f5e; }
+  #drawer { transition: transform .3s cubic-bezier(.32,.72,.35,1); }
+  .card-div { transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+  .card-div:hover { transform: translateX(2px); }
+  .card-div.selected { background: #18181b !important; }
+  .tab-btn { transition: all .2s ease; }
+  .dropzone.drag { border-color: #71717a !important; background: #18181b !important; }
+</style>
+</head>
+<body class="text-zinc-200 font-sans antialiased min-h-screen">
+
+<header class="sticky top-0 z-40 border-b border-edge bg-surface/95 backdrop-blur">
+  <div class="max-w-6xl mx-auto px-5 h-12 flex items-center gap-3">
+    <div class="flex items-center gap-2">
+      <i data-lucide="git-compare-arrows" class="w-4 h-4 text-zinc-100"></i>
+      <span class="font-mono font-bold text-sm tracking-tight text-zinc-100">TraceDiff</span>
+    </div>
+    <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-500">
+      <span id="status-dot" class="w-2 h-2 rounded-full bg-zinc-600 inline-block"></span>
+      <span id="status-text">idle | us-east-1 | Step Functions Map-State Engine</span>
+    </div>
+    <div class="ml-auto font-mono text-[11px] text-zinc-600" id="job-id"></div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-5 pb-24">
+
+  <section class="pt-12 pb-8 text-center">
+    <div class="flex items-center justify-center gap-2 mb-4 flex-wrap rise">
+      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">Merkle-Tree Pruned</span>
+      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">AWS Step Functions Map-State</span>
+      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">Deterministic Equivalence</span>
+    </div>
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-zinc-100 rise rise-1">Distributed Trace Diffing Engine</h1>
+    <p class="mt-4 text-zinc-400 text-base md:text-lg max-w-2xl mx-auto rise rise-2">Sub-second semantic regression analysis using Merkle Tree pruning and equivalence rules. Filter 99% noise, pinpoint 5 real bugs.</p>
+    <div class="mt-7 flex items-center justify-center gap-3 flex-wrap rise rise-3">
+      <button id="demo-btn" class="inline-flex items-center gap-2 bg-zinc-100 text-zinc-950 font-semibold text-sm px-6 py-3 rounded-lg hover:bg-white transition-colors">
+        <i data-lucide="zap" class="w-4 h-4"></i>
+        Load 1-Click Benchmark Demo
+      </button>
+      <button id="upload-toggle" class="inline-flex items-center gap-2 border border-edge bg-surface text-zinc-300 font-medium text-sm px-6 py-3 rounded-lg hover:border-zinc-500 transition-colors">
+        <i data-lucide="upload" class="w-4 h-4"></i>
+        Upload Custom Traces
+      </button>
+    </div>
+    <div id="demo-meta" class="mt-4 font-mono text-[11px] text-zinc-500 hidden"></div>
+  </section>
+
+  <section class="border border-edge bg-surface rounded-xl px-4 py-3 flex items-center gap-2 flex-wrap rise rise-4">
+    <span class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mr-1 inline-flex items-center gap-1.5">
+      <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>equivalence rules
+    </span>
+    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="ignore-timestamps" aria-pressed="true" data-tip="Suppresses timestamp jitter and clock skew">ignore-timestamps</button>
+    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="canonicalize-ids" aria-pressed="true" data-tip="Suppresses UUID and GUID rotation">canonicalize-ids</button>
+    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="numeric-tolerance" aria-pressed="true" data-tip="Suppresses floating-point and duration drift">numeric-tolerance</button>
+    <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="sort-concurrent" aria-pressed="true" data-tip="Suppresses async child-span interleaving">sort-concurrent</button>
+  </section>
+
+  <section id="upload-panel" class="hidden mt-4">
+    <div class="grid md:grid-cols-2 gap-3">
+      <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-6 text-center cursor-pointer transition-colors" id="dz-a" tabindex="0">
+        <i data-lucide="file-json" class="w-6 h-6 text-zinc-500 mx-auto mb-2"></i>
+        <h2 class="text-sm font-semibold text-zinc-200">Baseline Trace (Trace A)</h2>
+        <p class="text-xs text-zinc-500 mt-1">Drag and drop or click to browse JSON</p>
+        <div class="font-mono text-[11px] text-zinc-500 mt-2" id="meta-a">no file loaded</div>
+        <input type="file" id="file-a" accept="application/json,.json" hidden>
+      </div>
+      <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-6 text-center cursor-pointer transition-colors" id="dz-b" tabindex="0">
+        <i data-lucide="file-json-2" class="w-6 h-6 text-zinc-500 mx-auto mb-2"></i>
+        <h2 class="text-sm font-semibold text-zinc-200">Target Trace (Trace B)</h2>
+        <p class="text-xs text-zinc-500 mt-1">Drag and drop or click to browse JSON</p>
+        <div class="font-mono text-[11px] text-zinc-500 mt-2" id="meta-b">no file loaded</div>
+        <input type="file" id="file-b" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <div class="mt-3 flex items-center gap-3">
+      <button id="run-btn" disabled class="inline-flex items-center gap-2 bg-zinc-100 text-zinc-950 font-mono font-bold text-[13px] px-5 py-2.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors">
+        <i data-lucide="play" class="w-4 h-4"></i>[ Run Distributed Diff ]
+      </button>
+      <button id="reset-btn" class="font-mono text-xs text-zinc-500 border border-edge rounded-lg px-4 py-2.5 hover:text-zinc-300 hover:border-zinc-500 transition-colors">Reset</button>
+    </div>
+  </section>
+
+  <section id="pipeline" class="hidden mt-4 border border-edge bg-surface rounded-xl p-4">
+    <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mb-3 flex items-center gap-2">
+      <i data-lucide="activity" class="w-3.5 h-3.5"></i>live execution pipeline
+      <span id="pipe-job" class="ml-auto normal-case tracking-normal"></span>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2" id="pipe-stages"></div>
+  </section>
+
+  <section class="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3" id="metrics">
+    <div class="border border-edge bg-surface rounded-xl p-4">
+      <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5"><i data-lucide="scissors" class="w-3.5 h-3.5"></i>Prune Ratio</div>
+      <div class="font-mono text-2xl font-bold mt-1.5 text-emerald-400" id="m-skip">--</div>
+      <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="m-skip-sub">Merkle-skipped subtrees</div>
+    </div>
+    <div class="border border-edge bg-surface rounded-xl p-4">
+      <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5"><i data-lucide="filter" class="w-3.5 h-3.5"></i>Noise Filtered</div>
+      <div class="font-mono text-2xl font-bold mt-1.5 text-amber-400" id="m-noise">--</div>
+      <div class="font-mono text-[11px] text-zinc-500 mt-0.5">suppressed by equivalence rules</div>
+    </div>
+    <div class="border border-rose-900/60 bg-surface rounded-xl p-4">
+      <div class="font-mono text-[10px] uppercase tracking-widest text-rose-400/80 flex items-center gap-1.5"><i data-lucide="siren" class="w-3.5 h-3.5"></i>Critical Divergences</div>
+      <div class="font-mono text-2xl font-bold mt-1.5 text-rose-500" id="m-sem">--</div>
+      <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="m-sem-sub">semantic regressions</div>
+    </div>
+    <div class="border border-edge bg-surface rounded-xl p-4">
+      <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5"><i data-lucide="timer" class="w-3.5 h-3.5"></i>Diff Latency</div>
+      <div class="font-mono text-2xl font-bold mt-1.5 text-zinc-100" id="m-diff">--</div>
+      <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="m-diff-sub">backend engine time</div>
+    </div>
+  </section>
+
+  <section class="mt-4">
+    <div class="flex items-center gap-2 flex-wrap">
+      <button class="tab-btn font-mono text-xs px-4 py-2 rounded-lg border border-zinc-100 bg-zinc-100 text-zinc-950 font-semibold" data-tab="divs" aria-pressed="true">
+        Critical Divergences
+      </button>
+      <button class="tab-btn font-mono text-xs px-4 py-2 rounded-lg border border-edge bg-surface text-zinc-400 hover:border-zinc-500" data-tab="tree" aria-pressed="false">
+        Visual Tree Graph
+      </button>
+      <button id="noise-toggle" class="ml-auto font-mono text-[11px] px-3 py-1.5 rounded-md border border-edge bg-surface text-zinc-500 hover:border-amber-500/60 hover:text-amber-400 transition-colors" aria-pressed="false">
+        show noise
+      </button>
+    </div>
+
+    <div id="view-divs" class="mt-3">
+      <div id="div-list" class="flex flex-col gap-2">
+        <div class="border border-dashed border-edge rounded-xl p-10 text-center">
+          <i data-lucide="radar" class="w-6 h-6 text-zinc-600 mx-auto mb-2"></i>
+          <p class="font-mono text-xs text-zinc-500">No live results yet. Run the 1-click demo or upload traces.</p>
+          <p class="font-mono text-[11px] text-zinc-600 mt-1">Every value on this page comes from the live AWS backend or your uploaded files. No mock diff data.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-tree" class="hidden mt-3">
+      <div class="border border-edge bg-surface rounded-xl overflow-hidden">
+        <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+          <i data-lucide="network" class="w-3.5 h-3.5"></i>
+          <span>Trace B call tree, annotated with backend diffs</span>
+          <span class="ml-auto flex items-center gap-3 normal-case tracking-normal">
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>identical</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>noise</span>
+            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>divergent</span>
+          </span>
+        </div>
+        <div id="tree" class="p-2 font-mono text-xs max-h-[560px] overflow-auto"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mt-10 font-mono text-[10px] text-zinc-600 text-center">
+    TraceDiff frontend | zero mock diff data | <span id="api-url"></span>
+  </footer>
+
+  <div id="drawer-scrim" class="hidden fixed inset-0 bg-black/60 z-40"></div>
+  <aside id="drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-surface border-l border-edge z-50 translate-x-full flex flex-col">
+    <div class="px-5 py-4 border-b border-edge flex items-center gap-2">
+      <i data-lucide="scan-search" class="w-4 h-4 text-zinc-400"></i>
+      <span class="font-mono text-[11px] uppercase tracking-widest text-zinc-400">span inspector</span>
+      <button id="drawer-close" class="ml-auto text-zinc-500 hover:text-zinc-200 transition-colors"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div id="drawer-body" class="p-5 overflow-y-auto font-mono text-xs"></div>
+  </aside>
+
+  <div id="toast-wrap" class="hidden">
+    <div class="flex items-start gap-2 bg-surface2 border border-rose-800 rounded-lg px-4 py-3 max-w-lg shadow-2xl">
+      <i data-lucide="triangle-alert" class="w-4 h-4 text-rose-500 mt-0.5 shrink-0"></i>
+      <div class="font-mono text-[11px] text-rose-200 whitespace-pre-wrap break-words" id="toast-text"></div>
+    </div>
+  </div>
+
+<script>
+"use strict";
+var BASE_URL = "https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev";
+document.getElementById("api-url").textContent = BASE_URL;
+
+var state = {
+  fileA: null, fileB: null,
+  rules: { "ignore-timestamps": true, "canonicalize-ids": true, "numeric-tolerance": true, "sort-concurrent": true },
+  jobId: null, summary: null, results: [],
+  tab: "divs", showNoise: false, selected: -1,
+  treeB: null, diffByPath: {}, expanded: {}, nodeIndex: {}
+};
+
+function el(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function fmtBytes(n) {
+  if (n < 1024) return n + " B";
+  if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+  return (n / 1048576).toFixed(2) + " MB";
+}
+function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+function icons() { try { if (window.lucide) window.lucide.createIcons(); } catch (e) {} }
+
+function setStatus(mode, text) {
+  var dot = el("status-dot");
+  dot.className = "w-2 h-2 rounded-full inline-block " + (
+    mode === "working" ? "bg-amber-500 glow-amber dot-live" :
+    mode === "done" ? "bg-emerald-500 glow-emerald" :
+    mode === "error" ? "bg-rose-500 glow-rose" : "bg-zinc-600");
+  el("status-text").textContent = text;
+}
+
+var toastTimer = null;
+function toast(msg) {
+  el("toast-text").textContent = "BACKEND ERROR\n" + msg;
+  el("toast-wrap").classList.remove("hidden");
+  setStatus("error", "error | see notification");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el("toast-wrap").classList.add("hidden"); }, 12000);
+  icons();
+}
+
+// Live execution pipeline: 4 stages driven by real backend progress.
+var STAGES = [
+  { key: "upload", label: "1. S3 Presigned Upload", icon: "cloud-upload" },
+  { key: "orch", label: "2. Step Functions Orchestration", icon: "workflow" },
+  { key: "map", label: "3. Parallel Lambda Map-Workers", icon: "cpu" },
+  { key: "prune", label: "4. Merkle Prune + Equivalence Filter", icon: "git-compare-arrows" }
+];
+var stageState = {};
+function renderPipeline() {
+  var html = "";
+  STAGES.forEach(function (s) {
+    var st = stageState[s.key] || "idle";
+    var border = st === "done" ? "border-emerald-800" : st === "active" ? "stage-active" : "border-edge";
+    var badge = st === "done"
+      ? '<span class="w-4 h-4 rounded-full bg-emerald-500 glow-emerald inline-block"></span>'
+      : st === "active"
+        ? '<span class="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent spinner inline-block"></span>'
+        : '<span class="w-4 h-4 rounded-full border border-zinc-700 inline-block"></span>';
+    html += '<div class="border rounded-lg px-3 py-2.5 bg-surface2 flex items-center gap-2.5 ' + border + '">'
+      + badge
+      + '<div><div class="font-mono text-[11px] font-semibold ' + (st === "idle" ? "text-zinc-600" : "text-zinc-200") + '">' + s.label + "</div>"
+      + '<div class="font-mono text-[10px] text-zinc-600">' + (st === "done" ? "complete" : st === "active" ? "running..." : "pending") + "</div></div></div>";
+  });
+  el("pipe-stages").innerHTML = html;
+  icons();
+}
+function showPipeline(jobId) {
+  el("pipeline").classList.remove("hidden");
+  el("pipe-job").textContent = jobId ? "job " + jobId : "";
+  renderPipeline();
+  el("pipeline").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+// Local trace normalization (display + node counts only; diffing is backend-only).
+function toNode(raw, fid) {
+  var id = String((raw && raw.id) || fid);
+  var label = String((raw && (raw.label || raw.name || raw.id)) || fid);
+  var type = String((raw && raw.type) || "span");
+  var attrs = (raw && typeof raw.attributes === "object" && raw.attributes) || {};
+  var kids = (raw && (raw.children || raw.spans)) || [];
+  var children = Array.isArray(kids) ? kids.map(function (c, i) { return toNode(c, fid + "." + i); }) : [];
+  return { id: id, label: label, type: type, attributes: attrs, children: children };
+}
+function otelToTree(raw) {
+  var spans = [];
+  (raw.resourceSpans || []).forEach(function (rs) {
+    (rs.scopeSpans || []).forEach(function (ss) { (ss.spans || []).forEach(function (s) { spans.push(s); }); });
+  });
+  var byId = {}, roots = [];
+  spans.forEach(function (s, i) {
+    var n = { id: String(s.spanId || s.id || ("s" + i)), label: String(s.name || s.spanId || ("span-" + i)), type: "span", attributes: s.attributes || {}, children: [] };
+    byId[n.id] = n;
+  });
+  spans.forEach(function (s, i) {
+    var n = byId[String(s.spanId || s.id || ("s" + i))];
+    var pid = s.parentSpanId ? String(s.parentSpanId) : "";
+    if (pid && byId[pid]) byId[pid].children.push(n); else roots.push(n);
+  });
+  return { id: "trace", label: "trace", type: "trace", attributes: {}, children: roots };
+}
+function toDisplayTree(raw) {
+  if (Array.isArray(raw)) {
+    var linked = raw.some(function (s) { return s && typeof s === "object" && ("parentId" in s || "parentSpanId" in s); });
+    if (linked) {
+      var byId = {}, roots = [];
+      raw.forEach(function (s, i) { var n = toNode(s, "n" + i); n.children = []; byId[n.id] = n; if (s.spanId) byId[s.spanId] = n; });
+      raw.forEach(function (s, i) {
+        var pid = s.parentId || s.parentSpanId;
+        var n = byId[s.id] || byId[s.spanId];
+        if (pid && byId[pid] && byId[pid] !== n) byId[pid].children.push(n); else roots.push(n);
+      });
+      if (roots.length === 1) return roots[0];
+      return { id: "trace", label: "trace", type: "trace", attributes: {}, children: roots };
+    }
+    return { id: "trace", label: "trace", type: "trace", attributes: {}, children: raw.map(function (c, i) { return toNode(c, "n" + i); }) };
+  }
+  if (raw && typeof raw === "object") {
+    if ("resourceSpans" in raw) return otelToTree(raw);
+    if ("children" in raw || "label" in raw || "id" in raw) return toNode(raw, "0");
+  }
+  throw new Error("Unknown trace format: expected nested {children}, flat span array, or OTel {resourceSpans}");
+}
+function countNodes(n) { var c = 1; for (var i = 0; i < n.children.length; i++) c += countNodes(n.children[i]); return c; }
+
+function updateRunBtn() {
+  el("run-btn").disabled = !(state.fileA && state.fileA.valid && state.fileB && state.fileB.valid);
+}
+function ingestRecord(slot, rec) {
+  try {
+    rec.json = JSON.parse(rec.text);
+    rec.tree = toDisplayTree(rec.json);
+    rec.nodeCount = countNodes(rec.tree);
+    rec.valid = true;
+    el(slot === "A" ? "meta-a" : "meta-b").textContent =
+      rec.nodeCount.toLocaleString() + " spans | " + fmtBytes(rec.size) + " | " + rec.name;
+    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "#059669";
+  } catch (e) {
+    rec.valid = false;
+    el(slot === "A" ? "meta-a" : "meta-b").textContent = "INVALID: " + (e instanceof Error ? e.message : String(e));
+    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "#e11d48";
+  }
+  if (slot === "A") state.fileA = rec; else state.fileB = rec;
+  updateRunBtn();
+}
+function handleFile(slot, file) {
+  var reader = new FileReader();
+  reader.onload = function () {
+    ingestRecord(slot, { name: file.name, size: file.size, text: String(reader.result || ""), valid: false });
+  };
+  reader.readAsText(file);
+}
+function wireDropzone(slot) {
+  var dz = el(slot === "A" ? "dz-a" : "dz-b");
+  var input = el(slot === "A" ? "file-a" : "file-b");
+  dz.addEventListener("click", function () { input.click(); });
+  dz.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") input.click(); });
+  input.addEventListener("change", function () { if (input.files && input.files[0]) handleFile(slot, input.files[0]); input.value = ""; });
+  ["dragover", "dragenter"].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.add("drag"); }); });
+  ["dragleave", "drop"].forEach(function (ev) { dz.addEventListener(ev, function (e) { e.preventDefault(); dz.classList.remove("drag"); }); });
+  dz.addEventListener("drop", function (e) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(slot, e.dataTransfer.files[0]);
+  });
+}
+wireDropzone("A"); wireDropzone("B");
+
+el("upload-toggle").addEventListener("click", function () {
+  el("upload-panel").classList.toggle("hidden");
+  icons();
+});
+el("reset-btn").addEventListener("click", function () {
+  state.fileA = state.fileB = null; state.jobId = null;
+  state.summary = null; state.results = []; state.selected = -1;
+  state.treeB = null; state.diffByPath = {}; state.expanded = {}; state.nodeIndex = {};
+  state.showNoise = false;
+  el("noise-toggle").textContent = "show noise"; el("noise-toggle").setAttribute("aria-pressed", "false");
+  el("dz-a").style.borderColor = ""; el("dz-b").style.borderColor = "";
+  el("meta-a").textContent = "no file loaded"; el("meta-b").textContent = "no file loaded";
+  el("demo-meta").classList.add("hidden");
+  el("job-id").textContent = ""; el("pipeline").classList.add("hidden");
+  ["m-skip", "m-noise", "m-sem", "m-diff"].forEach(function (id) { el(id).textContent = "--"; });
+  el("m-skip-sub").textContent = "Merkle-skipped subtrees";
+  el("m-sem-sub").textContent = "semantic regressions";
+  el("m-diff-sub").textContent = "backend engine time";
+  closeDrawer(); updateRunBtn(); setStatus("", "idle | us-east-1 | Step Functions Map-State Engine");
+});
+
+document.querySelectorAll(".rule-btn").forEach(function (btn) {
+  btn.addEventListener("click", function () {
+    var r = btn.getAttribute("data-rule");
+    var on = btn.getAttribute("aria-pressed") !== "true";
+    btn.setAttribute("aria-pressed", String(on));
+    state.rules[r] = on;
+    paintRuleButtons();
+  });
+});
+function paintRuleButtons() {
+  document.querySelectorAll(".rule-btn").forEach(function (b) {
+    var on = b.getAttribute("aria-pressed") === "true";
+    b.className = "rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors " +
+      (on ? "border-zinc-500 bg-surface2 text-zinc-100" : "border-edge bg-surface text-zinc-600 line-through");
+  });
+}
+paintRuleButtons();
+
+document.querySelectorAll(".tab-btn").forEach(function (btn) {
+  btn.addEventListener("click", function () { switchTab(btn.getAttribute("data-tab")); });
+});
+function switchTab(tab) {
+  state.tab = tab;
+  document.querySelectorAll(".tab-btn").forEach(function (b) {
+    var on = b.getAttribute("data-tab") === tab;
+    b.setAttribute("aria-pressed", String(on));
+    b.className = "tab-btn font-mono text-xs px-4 py-2 rounded-lg border " +
+      (on ? "border-zinc-100 bg-zinc-100 text-zinc-950 font-semibold" : "border-edge bg-surface text-zinc-400 hover:border-zinc-500");
+  });
+  el("view-divs").classList.toggle("hidden", tab !== "divs");
+  el("view-tree").classList.toggle("hidden", tab !== "tree");
+  icons();
+}
+el("noise-toggle").addEventListener("click", function () {
+  state.showNoise = !state.showNoise;
+  el("noise-toggle").textContent = state.showNoise ? "hide noise" : "show noise";
+  el("noise-toggle").setAttribute("aria-pressed", String(state.showNoise));
+  renderDivList();
+});
+
+function openDrawer(html) {
+  el("drawer-body").innerHTML = html;
+  el("drawer").classList.remove("translate-x-full");
+  el("drawer-scrim").classList.remove("hidden");
+  icons();
+}
+function closeDrawer() {
+  el("drawer").classList.add("translate-x-full");
+  el("drawer-scrim").classList.add("hidden");
+}
+el("drawer-close").addEventListener("click", closeDrawer);
+el("drawer-scrim").addEventListener("click", closeDrawer);
+
+// 1-click benchmark demo: deterministic ~1000-span checkout trace pair.
+// Trace A = clean checkout (auth -> cart -> payment -> fulfillment).
+// Trace B = same behavior + rotated UUIDs / shifted timestamps / duration
+// jitter (noise) + 5 injected semantic regressions. Diffing itself is
+// always done by the live AWS backend; this only builds the INPUT files.
+function mulberry32(seed) {
+  var a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    var t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function demoUuid(rng) {
+  function h(n) { var s = ""; for (var i = 0; i < n; i++) s += "0123456789abcdef"[Math.floor(rng() * 16)]; return s; }
+  return h(8) + "-" + h(4) + "-4" + h(3) + "-8" + h(3) + "-" + h(12);
+}
+var demoCounter = 0;
+function mkSpan(rng, label, type, extraAttrs, children) {
+  var ts = 1758000000000 + Math.floor(rng() * 4000);
+  var attrs = {
+    timestamp: new Date(ts).toISOString(),
+    request_id: demoUuid(rng),
+    duration_ms: Math.round((2 + rng() * 120) * 100) / 100
+  };
+  if (extraAttrs) for (var k in extraAttrs) attrs[k] = extraAttrs[k];
+  return { id: "span-" + (++demoCounter), type: type || "span", label: label, attributes: attrs, children: children || [] };
+}
+function leafFan(rng, prefix, n, type) {
+  var out = [];
+  for (var i = 0; i < n; i++) out.push(mkSpan(rng, prefix + "-" + i, type || "log"));
+  return out;
+}
+function buildDemoTraceA() {
+  demoCounter = 0;
+  var rng = mulberry32(20260919);
+  var auth = mkSpan(rng, "auth", "span", { service: "auth-svc" }, [
+    mkSpan(rng, "login", "call", { "http.status_code": 200 }, leafFan(rng, "login-audit", 50, "log")),
+    mkSpan(rng, "token_validate", "call", { "http.status_code": 200 }, leafFan(rng, "token-check", 30, "log")),
+    mkSpan(rng, "session_create", "call", { "http.status_code": 200 }, leafFan(rng, "session-evt", 30, "log"))
+  ]);
+  var cartItems = [];
+  for (var i = 0; i < 130; i++) {
+    cartItems.push(mkSpan(rng, "cart_item_" + i, "span", { sku: "SKU-" + (1000 + i), qty: 1 + (i % 3) }, [
+      mkSpan(rng, "price_lookup", "call", { price_cents: 499 + i }),
+      mkSpan(rng, "inventory_check", "call", { rows_available: 42 }),
+      mkSpan(rng, "cart_line_audit", "log", {})
+    ]));
+  }
+  var cart = mkSpan(rng, "cart", "span", { service: "cart-svc" }, cartItems.concat([
+    mkSpan(rng, "price_calc", "call", { total_cents: 5199 }, leafFan(rng, "price-evt", 20, "log")),
+    mkSpan(rng, "promo_apply", "call", { promo: "FESTIVE10" }, leafFan(rng, "promo-evt", 15, "log"))
+  ]));
+  var payment = mkSpan(rng, "payment_process", "span", { service: "pay-svc" }, [
+    mkSpan(rng, "fraud_check", "call", { risk_score: 0.02 }, leafFan(rng, "fraud-sig", 40, "log")),
+    mkSpan(rng, "stripe_charge_create", "call", { "http.status_code": 200, charge_id: "ch_demo123" }, leafFan(rng, "charge-evt", 40, "log")),
+    mkSpan(rng, "ledger_write", "call", { rows_written: 2 }, leafFan(rng, "ledger-evt", 40, "log")),
+    mkSpan(rng, "audit_record_written", "log", { level: "INFO", message: "Payment captured successfully" })
+  ]);
+  var packages = [];
+  for (var p = 0; p < 50; p++) {
+    packages.push(mkSpan(rng, "package_" + p, "span", { warehouse: "BLR-0" + (p % 4) }, [
+      mkSpan(rng, "inventory_reserve", "call", { rows_available: 42 }),
+      mkSpan(rng, "warehouse_pick", "call", { "http.status_code": 200 }),
+      mkSpan(rng, "ship_label", "call", { carrier: "delhivery" })
+    ]));
+  }
+  var fulfillment = mkSpan(rng, "fulfillment", "span", { service: "fulfill-svc" }, packages.concat([
+    mkSpan(rng, "order_state_transition", "state_change", { from_state: "PAID", to_state: "CONFIRMED" })
+  ]));
+  return mkSpan(rng, "POST /api/v1/checkout", "span",
+    { "http.status_code": 200, service: "api-gateway" }, [auth, cart, payment, fulfillment]);
+}
+function rotateUuidLike(v, rng) {
+  if (typeof v !== "string") return v;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) return demoUuid(rng);
+  if (/^(ch_|req_|tok_)/.test(v)) return v.replace(/[A-Za-z0-9]+$/, function () { return Math.floor(rng() * 1e9).toString(36); });
+  return v;
+}
+function addNoise(node, rng) {
+  for (var k in node.attributes) {
+    var v = node.attributes[k];
+    if (k === "timestamp" || k === "start_time" || k === "end_time") {
+      node.attributes[k] = new Date(Date.parse(v) + Math.floor(rng() * 800)).toISOString();
+    } else if (k === "request_id" || k === "span_id" || /uuid|guid/i.test(k)) {
+      node.attributes[k] = rotateUuidLike(v, rng);
+    } else if (k === "duration_ms" && typeof v === "number") {
+      node.attributes[k] = Math.round(v * (1 + (rng() - 0.5) * 0.06) * 100) / 100;
+    }
+  }
+  node.id = "span-b-" + node.id;
+  node.children.forEach(function (c) { addNoise(c, rng); });
+}
+function findNode(root, label) {
+  if (root.label === label) return root;
+  for (var i = 0; i < root.children.length; i++) {
+    var f = findNode(root.children[i], label);
+    if (f) return f;
+  }
+  return null;
+}
+function findParent(root, label, parent) {
+  if (root.label === label) return parent;
+  for (var i = 0; i < root.children.length; i++) {
+    var f = findParent(root.children[i], label, root);
+    if (f) return f;
+  }
+  return null;
+}
+function buildDemoPair() {
+  var rng = mulberry32(777);
+  var a = buildDemoTraceA();
+  var b = JSON.parse(JSON.stringify(a));
+  addNoise(b, rng);
+  // 5 injected semantic regressions:
+  var charge = findNode(b, "stripe_charge_create");
+  charge.attributes["http.status_code"] = 500;
+  charge.attributes.error_code = "card_declined";
+  var ledgerParent = findParent(b, "ledger_write", null);
+  ledgerParent.children = ledgerParent.children.filter(function (c) { return c.label !== "ledger_write"; });
+  var reserve = findNode(b, "inventory_reserve");
+  reserve.attributes.rows_available = 0;
+  var pay = findNode(b, "payment_process");
+  var retry = mkSpan(rng, "sms_fraud_retry", "call", { "http.status_code": 202, attempt: 2 });
+  delete retry.attributes.timestamp; delete retry.attributes.request_id;
+  pay.children.push(retry);
+  var st = findNode(b, "order_state_transition");
+  st.attributes.to_state = "FAILED";
+  return { a: a, b: b };
+}
+
+el("demo-btn").addEventListener("click", function () {
+  var pair = buildDemoPair();
+  var textA = JSON.stringify(pair.a);
+  var textB = JSON.stringify(pair.b);
+  ingestRecord("A", { name: "demo-trace-a.json", size: textA.length, text: textA, valid: false });
+  ingestRecord("B", { name: "demo-trace-b.json", size: textB.length, text: textB, valid: false });
+  var m = el("demo-meta");
+  m.classList.remove("hidden");
+  m.textContent = "demo loaded: Trace A " + state.fileA.nodeCount.toLocaleString() + " spans | Trace B " +
+    state.fileB.nodeCount.toLocaleString() + " spans | 5 injected regressions + timestamp/UUID noise | uploading to live backend...";
+  icons();
+  runDiff();
+});
+
+// Live AWS backend integration. Zero mock diff data: every divergence,
+// metric, and summary rendered below comes from these calls. Any failure
+// surfaces the raw backend response as a toast; nothing is faked.
+function apiError(method, url, res, bodyText) {
+  return method + " " + url + " -> HTTP " + res.status + " " + res.statusText + "\n" + bodyText;
+}
+function presign(filename) {
+  var url = BASE_URL + "/presign?filename=" + encodeURIComponent(filename) + "&contentType=application/json";
+  return fetch(url).then(function (res) {
+    return res.text().then(function (t) {
+      if (!res.ok) throw new Error(apiError("GET", url, res, t));
+      var data;
+      try { data = JSON.parse(t); } catch (e) { throw new Error("GET " + url + " -> invalid JSON:\n" + t); }
+      if (!data.uploadUrl || !data.key) throw new Error("GET " + url + " -> missing uploadUrl/key:\n" + t);
+      return data;
+    });
+  });
+}
+function putToS3(uploadUrl, text) {
+  return fetch(uploadUrl, { method: "PUT", body: text, headers: { "Content-Type": "application/json" } }).then(function (res) {
+    if (!res.ok) return res.text().then(function (t) { throw new Error(apiError("PUT", "<s3-presigned-url>", res, t)); });
+  });
+}
+function submitJob(traceAKey, traceBKey) {
+  var url = BASE_URL + "/jobs";
+  var rules = Object.keys(state.rules).filter(function (r) { return state.rules[r]; });
+  var body = JSON.stringify({ traceAKey: traceAKey, traceBKey: traceBKey, rules: rules, config: { tolerance: 0.05 } });
+  return fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body }).then(function (res) {
+    return res.text().then(function (t) {
+      if (!res.ok && res.status !== 202) throw new Error(apiError("POST", url, res, t));
+      var data;
+      try { data = JSON.parse(t); } catch (e) { throw new Error("POST " + url + " -> invalid JSON:\n" + t); }
+      if (!data.jobId) throw new Error("POST " + url + " -> missing jobId:\n" + t);
+      return data;
+    });
+  });
+}
+function getJob(jobId) {
+  var url = BASE_URL + "/jobs/" + jobId;
+  return fetch(url).then(function (res) {
+    return res.text().then(function (t) {
+      if (!res.ok) throw new Error(apiError("GET", url, res, t));
+      try { return JSON.parse(t); } catch (e) { throw new Error("GET " + url + " -> invalid JSON:\n" + t); }
+    });
+  });
+}
+function getResults(jobId) {
+  var all = [];
+  function page(token) {
+    var url = BASE_URL + "/jobs/" + jobId + "/results?limit=200" + (token ? "&nextToken=" + encodeURIComponent(token) : "");
+    return fetch(url).then(function (res) {
+      return res.text().then(function (t) {
+        if (!res.ok) throw new Error(apiError("GET", url, res, t));
+        var data;
+        try { data = JSON.parse(t); } catch (e) { throw new Error("GET " + url + " -> invalid JSON:\n" + t); }
+        all = all.concat(data.results || []);
+        if (data.nextToken) return page(data.nextToken);
+        return all;
+      });
+    });
+  }
+  return page(null);
+}
+
+function runDiff() {
+  if (!(state.fileA && state.fileA.valid && state.fileB && state.fileB.valid)) {
+    toast("Both Trace A and Trace B must be valid JSON traces before running.");
+    return;
+  }
+  el("run-btn").disabled = true;
+  el("demo-btn").disabled = true;
+  setStatus("working", "working | us-east-1 | Step Functions Map-State Engine");
+  stageState = { upload: "active" };
+  showPipeline(null);
+  var jobId = null;
+  presign(state.fileA.name)
+    .then(function (pA) { return putToS3(pA.uploadUrl, state.fileA.text).then(function () { return pA.key; }); })
+    .then(function (keyA) {
+      return presign(state.fileB.name).then(function (pB) {
+        return putToS3(pB.uploadUrl, state.fileB.text).then(function () { return { keyA: keyA, keyB: pB.key }; });
+      });
+    })
+    .then(function (keys) {
+      stageState = { upload: "done", orch: "active" };
+      renderPipeline();
+      return submitJob(keys.keyA, keys.keyB);
+    })
+    .then(function (sub) {
+      jobId = sub.jobId; state.jobId = jobId;
+      el("job-id").textContent = "job " + jobId;
+      el("pipe-job").textContent = "job " + jobId;
+      stageState = { upload: "done", orch: "done", map: "active" };
+      renderPipeline();
+      var attempts = 0;
+      function poll() {
+        return getJob(jobId).then(function (job) {
+          if (job.status === "PENDING") { stageState = { upload: "done", orch: "active", map: "idle", prune: "idle" }; }
+          else if (job.status === "RUNNING") { stageState = { upload: "done", orch: "done", map: "active", prune: "idle" }; }
+          else if (job.status === "COMPLETED") {
+            stageState = { upload: "done", orch: "done", map: "done", prune: "active" };
+            renderPipeline();
+            return job;
+          }
+          else { throw new Error("Job terminal state:\n" + JSON.stringify(job, null, 2)); }
+          renderPipeline();
+          attempts++;
+          if (attempts > 250) throw new Error("Polling timed out after 250 x 1.2s waiting for job " + jobId);
+          return sleep(1200).then(poll);
+        });
+      }
+      return poll();
+    })
+    .then(function (job) {
+      state.summary = job.summary || null;
+      if (!state.summary) throw new Error("Job " + jobId + " COMPLETED but returned no summary.");
+      return getResults(jobId);
+    })
+    .then(function (results) {
+      state.results = results || [];
+      state.selected = -1;
+      stageState = { upload: "done", orch: "done", map: "done", prune: "done" };
+      renderPipeline();
+      renderAll();
+      setStatus("done", "completed | us-east-1 | Step Functions Map-State Engine");
+      document.getElementById("metrics").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    })
+    .catch(function (e) {
+      toast(e instanceof Error ? e.message : String(e));
+    })
+    .then(function () {
+      el("run-btn").disabled = false;
+      el("demo-btn").disabled = false;
+      updateRunBtn();
+    });
+}
+el("run-btn").addEventListener("click", runDiff);
+
+// Rendering: metrics, divergence cards, visual tree, inspector drawer.
+function pathOf(r) { return r.pathB || r.pathA || []; }
+function pathKey(r) { return pathOf(r).join(""); }
+
+function renderAll() {
+  var s = state.summary;
+  el("m-skip").textContent = (s.skipPercentage != null ? s.skipPercentage + "%" : "--");
+  el("m-skip-sub").textContent = (s.nodesSkipped != null ? Number(s.nodesSkipped).toLocaleString() : "--") +
+    " skipped / " + (s.traceASize != null ? Number(s.traceASize).toLocaleString() : "--") + " nodes";
+  el("m-noise").textContent = (s.noiseDiffs != null ? Number(s.noiseDiffs).toLocaleString() : "--");
+  el("m-sem").textContent = (s.semanticDiffs != null ? s.semanticDiffs : state.results.filter(function (r) { return r.significance === "semantic"; }).length);
+  el("m-sem-sub").textContent = (s.uncertainDiffs != null ? s.uncertainDiffs : "--") + " uncertain | " + state.results.length + " total";
+  el("m-diff").textContent = (s.timing && s.timing.diffMs != null ? Number(s.timing.diffMs).toLocaleString() + " ms" : "--");
+  el("m-diff-sub").textContent = "parse " + (s.timing ? s.timing.parseMs : "--") + " ms | merkle " + (s.timing ? s.timing.merkleBuildMs : "--") + " ms";
+
+  state.diffByPath = {};
+  state.results.forEach(function (r, i) {
+    var k = pathKey(r);
+    if (!state.diffByPath[k]) state.diffByPath[k] = [];
+    state.diffByPath[k].push(i);
+  });
+  state.expanded = { "": true };
+  state.results.forEach(function (r) {
+    if (r.significance !== "semantic") return;
+    var p = pathOf(r);
+    for (var d = 0; d < p.length; d++) state.expanded[p.slice(0, d).join("")] = true;
+  });
+  state.treeB = state.fileB.tree;
+  renderDivList();
+  renderTree();
+}
+
+function visibleResults() {
+  return state.results.map(function (r, i) { return [r, i]; }).filter(function (x) {
+    if (x[0].significance === "semantic") return true;
+    return state.showNoise;
+  });
+}
+function sigBadge(sig) {
+  if (sig === "semantic") return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-rose-500 text-rose-400">SEMANTIC</span>';
+  if (sig === "noise") return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-500 text-amber-400">NOISE</span>';
+  return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border border-zinc-600 text-zinc-400">UNCERTAIN</span>';
+}
+function typeBadge(t) {
+  var c = t === "added" ? "border-emerald-600 text-emerald-400" : t === "removed" ? "border-rose-600 text-rose-400" : "border-zinc-600 text-zinc-300";
+  return '<span class="font-mono text-[9px] font-bold px-1.5 py-0.5 rounded border ' + c + '">' + esc(String(t || "modified").toUpperCase()) + "</span>";
+}
+function attrTable(nodeA, nodeB) {
+  if (!nodeA && !nodeB) return '<p class="text-zinc-600">No span attributes returned for this diff.</p>';
+  var keys = {};
+  [nodeA, nodeB].forEach(function (n) {
+    var a = (n && n.attributes) || {};
+    Object.keys(a).forEach(function (k) { keys[k] = true; });
+  });
+  var rows = Object.keys(keys).sort().map(function (k) {
+    var va = nodeA && nodeA.attributes ? nodeA.attributes[k] : undefined;
+    var vb = nodeB && nodeB.attributes ? nodeB.attributes[k] : undefined;
+    var sa = va === undefined ? "--" : JSON.stringify(va);
+    var sb = vb === undefined ? "--" : JSON.stringify(vb);
+    var changed = sa !== sb;
+    return '<tr class="' + (changed ? "bg-rose-950/30" : "") + '"><td class="py-1 pr-3 text-zinc-400">' + esc(k) + "</td>"
+      + '<td class="py-1 pr-3 break-all ' + (changed ? "text-rose-300" : "text-zinc-500") + '">' + esc(sa) + "</td>"
+      + '<td class="py-1 break-all ' + (changed ? "text-rose-300" : "text-zinc-500") + '">' + esc(sb) + "</td></tr>";
+  }).join("");
+  return '<table class="w-full text-left"><thead><tr class="text-zinc-600 text-[10px] uppercase">'
+    + "<th class='py-1 pr-3'>attribute</th><th class='py-1 pr-3'>Trace A</th><th class='py-1'>Trace B</th></tr></thead>"
+    + "<tbody>" + rows + "</tbody></table>";
+}
+function renderDivList() {
+  var host = el("div-list");
+  var items = visibleResults().filter(function (x) { return x[0].significance === "semantic" || state.showNoise; });
+  var semOnly = visibleResults().filter(function (x) { return x[0].significance === "semantic"; });
+  items = state.showNoise ? visibleResults() : semOnly;
+  if (items.length === 0) {
+    host.innerHTML = '<div class="border border-dashed border-edge rounded-xl p-10 text-center font-mono text-xs text-zinc-500">Backend returned zero divergences in this view.</div>';
+    return;
+  }
+  host.innerHTML = items.map(function (x) {
+    var r = x[0], idx = x[1];
+    var crumb = esc(pathOf(r).join("  ›  ") || "(root)");
+    var sel = idx === state.selected ? " selected border-rose-700" : "border-edge";
+    var left = r.significance === "semantic" ? "border-l-rose-500" : r.significance === "noise" ? "border-l-amber-500" : "border-l-zinc-600";
+    var detail = idx === state.selected
+      ? '<div class="mt-3 pt-3 border-t border-edge">' + attrTable(r.nodeA, r.nodeB)
+        + (r.classifiedBy ? '<div class="mt-2 text-zinc-600">classified by <span class="text-zinc-400">' + esc(r.classifiedBy) + "</span></div>" : "")
+        + "</div>"
+      : "";
+    return '<div class="card-div rise cursor-pointer border border-l-2 ' + sel + " " + left + ' bg-surface rounded-lg px-4 py-3" data-idx="' + idx + '">'
+      + '<div class="flex items-center gap-2 flex-wrap">' + typeBadge(r.type) + sigBadge(r.significance)
+      + '<span class="font-mono text-[11px] text-zinc-500 ml-auto">depth ' + r.depth + " | subtree " + r.affectedSubtreeSize + "</span></div>"
+      + '<div class="font-mono text-[11px] text-zinc-500 mt-1.5 break-all">' + crumb + "</div>"
+      + '<div class="text-[13px] text-zinc-200 mt-1">' + esc(r.description || "") + "</div>"
+      + detail + "</div>";
+  }).join("");
+  host.querySelectorAll(".card-div").forEach(function (c) {
+    c.addEventListener("click", function () {
+      var idx = Number(c.getAttribute("data-idx"));
+      state.selected = (state.selected === idx ? -1 : idx);
+      renderDivList();
+      if (state.tab === "tree") renderTree();
+      openNodeDrawer(idx);
+    });
+  });
+  icons();
+}
+
+// Tree annotation over Trace B, keyed by backend breadcrumb paths.
+function annotate(node, trail) {
+  var key = trail.join("");
+  var own = state.diffByPath[key] || [];
+  var hasSem = false, hasNoise = false, kids = [], total = 1;
+  node.children.forEach(function (c) {
+    var info = annotate(c, trail.concat([c.label]));
+    kids.push(info); total += info.total;
+    if (info.hasSem) hasSem = true;
+    if (info.hasNoise) hasNoise = true;
+  });
+  own.forEach(function (i) {
+    if (state.results[i].significance === "semantic") hasSem = true; else hasNoise = true;
+  });
+  state.nodeIndex[key] = { node: node, own: own };
+  return { node: node, key: key, own: own, kids: kids, hasSem: hasSem, hasNoise: hasNoise, total: total };
+}
+function renderTree() {
+  var host = el("tree");
+  if (!state.treeB) {
+    host.innerHTML = '<div class="p-8 text-center font-mono text-xs text-zinc-600">Run a diff to visualize the annotated call tree.</div>';
+    return;
+  }
+  var info = annotate(state.treeB, [state.treeB.label]);
+  var html = "";
+  function emit(ni, depth) {
+    var open = state.expanded[ni.key];
+    if (open === undefined) open = depth < 2 || ni.hasSem;
+    var isOwnSem = ni.own.some(function (i) { return state.results[i].significance === "semantic"; });
+    var isOwnNoise = ni.own.length > 0 && !isOwnSem;
+    var dot = ni.own.length ? (isOwnSem ? "bg-rose-500 glow-rose pulse-red" : "bg-amber-500 glow-amber")
+      : (ni.hasSem ? "bg-rose-500" : (ni.hasNoise ? "bg-amber-500" : "bg-emerald-500"));
+    var pill = ni.own.length
+      ? (isOwnSem
+        ? '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-rose-500/15 border border-rose-500 text-rose-400">DIVERGENT</span>'
+        : '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-amber-500/10 border border-amber-500 text-amber-400">NOISE</span>')
+      : (!ni.hasSem && !ni.hasNoise
+        ? '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-emerald-700 text-emerald-500">PRUNED ' + ni.total + "</span>"
+        : "");
+    var caret = ni.node.children.length ? (open ? "-" : "+") : "·";
+    var sel = ni.own.indexOf(state.selected) >= 0 ? " selected" : "";
+    var firstDiff = ni.own.length ? ni.own[0] : -1;
+    var dur = ni.node.attributes && ni.node.attributes.duration_ms != null ? esc(ni.node.attributes.duration_ms) + "ms" : "";
+    html += '<div class="tnode-row flex items-center gap-2 h-6 pr-2 rounded cursor-pointer' + sel + '" data-key="' + esc(ni.key) + '" data-diff="' + firstDiff + '" style="padding-left:' + (6 + depth * 14) + 'px">'
+      + '<span class="w-3.5 text-center text-zinc-600 shrink-0">' + caret + '</span>'
+      + '<span class="w-2 h-2 rounded-full shrink-0 ' + dot + '"></span>'
+      + '<span class="truncate text-zinc-200">' + esc(ni.node.label) + "</span>" + pill
+      + '<span class="ml-auto text-[10px] text-zinc-600 shrink-0 pl-2">' + esc(ni.node.type) + (dur ? " | " + dur : "") + "</span></div>";
+    if (open && ni.node.children.length) {
+      html += '<div class="tree-children">';
+      ni.kids.forEach(function (k) { emit(k, depth + 1); });
+      html += "</div>";
+    }
+  }
+  emit(info, 0);
+  host.innerHTML = html;
+  host.querySelectorAll(".tnode-row").forEach(function (row) {
+    row.addEventListener("click", function () {
+      var k = row.getAttribute("data-key");
+      var di = Number(row.getAttribute("data-diff"));
+      if (di >= 0) { state.selected = di; openNodeDrawer(di); }
+      else { state.expanded[k] = !(state.expanded[k] === undefined ? true : state.expanded[k]); }
+      renderTree();
+    });
+  });
+}
+function openNodeDrawer(idx) {
+  var r = state.results[idx];
+  if (!r) return;
+  var entry = state.nodeIndex[pathKey(r)];
+  var treeNode = entry ? entry.node : (r.nodeB || r.nodeA);
+  var attrs = (treeNode && treeNode.attributes) || {};
+  var dur = attrs.duration_ms != null ? esc(attrs.duration_ms) + " ms" : "--";
+  var opName = esc((treeNode && treeNode.label) || (pathOf(r).slice(-1)[0]) || "(root)");
+  openDrawer(
+    '<div class="flex items-center gap-2 flex-wrap">' + typeBadge(r.type) + sigBadge(r.significance) + "</div>"
+    + '<h3 class="text-sm font-semibold text-zinc-100 mt-3 break-all">' + opName + "</h3>"
+    + '<div class="text-zinc-500 mt-1 break-all">' + esc(pathOf(r).join("  ›  ")) + "</div>"
+    + '<div class="grid grid-cols-2 gap-2 mt-4">'
+    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">duration</div><div class="text-zinc-200 mt-0.5">' + dur + "</div></div>"
+    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">depth</div><div class="text-zinc-200 mt-0.5">' + r.depth + "</div></div>"
+    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">affected subtree</div><div class="text-zinc-200 mt-0.5">' + r.affectedSubtreeSize + " spans</div></div>"
+    + '<div class="border border-edge rounded-lg p-2.5"><div class="text-[10px] uppercase text-zinc-600">rule</div><div class="text-zinc-200 mt-0.5">' + esc(r.classifiedBy || "--") + "</div></div>"
+    + "</div>"
+    + '<p class="text-zinc-300 text-[13px] font-sans mt-4">' + esc(r.description || "") + "</p>"
+    + '<div class="mt-4 pt-3 border-t border-edge"><div class="text-[10px] uppercase text-zinc-600 mb-2">attribute diff | Trace A vs Trace B</div>'
+    + attrTable(r.nodeA, r.nodeB) + "</div>"
+  );
+}
+
+icons();
+setStatus("", "idle | us-east-1 | Step Functions Map-State Engine");
+</script>
+</main>
+</body>
+</html>

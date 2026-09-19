@@ -167,6 +167,38 @@ describe("diff — noise via rules", () => {
     expect(r.diffs.some((d) => d.significance === "semantic")).toBe(true);
   });
 
+  test("string-encoded timestamp variants are noise (timestamp_raw, db.timestamp_iso)", () => {
+    const a = withDepth(
+      node("root", {
+        timestamp_raw: "2026-09-03 00:03:18",
+        timestamp_ms: 1788393798000,
+        "db.timestamp_iso": "2026-09-03T00:03:18Z",
+      }),
+    );
+    const b = clone(a);
+    b.attributes.timestamp_raw = "2026-09-03 00:05:33";
+    b.attributes.timestamp_ms = 1788393933000;
+    b.attributes["db.timestamp_iso"] = "2026-09-03T00:05:33Z";
+    withDepth(b, 0);
+
+    const r = runDiff(a, b, ["ignore-timestamps"]);
+    expect(r.diffs.filter((d) => d.significance === "semantic")).toHaveLength(0);
+    expect(r.diffs.length).toBeGreaterThanOrEqual(1);
+  });
+
+  test("non-instant compounds stay semantic (time_zone, date_of_birth)", () => {
+    const a = withDepth(node("root", { time_zone: "UTC", date_of_birth: "1990-01-01" }));
+    const b = clone(a);
+    b.attributes.time_zone = "Asia/Kolkata";
+    b.attributes.date_of_birth = "1991-02-02";
+    withDepth(b, 0);
+
+    const r = runDiff(a, b, ["ignore-timestamps"]);
+    const semantic = r.diffs.filter((d) => d.significance === "semantic");
+    expect(semantic.length).toBeGreaterThanOrEqual(1);
+    expect(semantic[0].description).toContain("time_zone");
+  });
+
   test("mixed node rolls up to worst significance", () => {
     // Field A is within numeric tolerance (noise), field B is not (semantic).
     const a = withDepth(node("op", { jitter_ms: 100, status: 200 }));

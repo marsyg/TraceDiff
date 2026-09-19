@@ -38,7 +38,11 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
 
   const diffItemsHtml = summary.diffs
     .map((d, index) => {
-      const pathStr = (d.pathB ?? d.pathA ?? []).join(" &rsaquo; ");
+      // Same rule as the terminal view: show where the node lives —
+      // removed → pathA, added → pathB. Anchor paths stay on the object.
+      const pathArr =
+        d.type === "removed" ? (d.pathA ?? d.pathB ?? []) : (d.pathB ?? d.pathA ?? []);
+      const pathStr = pathArr.join(" &rsaquo; ");
       const badgeClass =
         d.significance === "semantic"
           ? "badge-semantic"

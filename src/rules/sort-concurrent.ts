@@ -14,6 +14,8 @@ export const makeSortConcurrent = (isConcurrent: (node: TraceNode) => boolean): 
   return {
     name: "sort-concurrent",
     description: "Sorts concurrent nodes",
+    // Touches children order only — a no-op for attribute fusion.
+    fuse: { kind: "passthrough" },
     normalize: (node: TraceNode) => {
       return node;
     },

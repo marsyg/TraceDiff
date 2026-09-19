@@ -242,6 +242,10 @@ function buildOwnNodeDiff(
   for (const field of keys) {
     const valueA = a.trace.attributes[field];
     const valueB = b.trace.attributes[field];
+    // Fast path: identical primitives/references need no serialization.
+    // Falls through to the canonical comparison for NaN and other cases
+    // where === is insufficient, so verdicts are unchanged.
+    if (valueA === valueB) continue;
     if (canonicalSerialize(valueA) === canonicalSerialize(valueB)) continue;
 
     const rawDiff: RawDiff = {
@@ -253,8 +257,9 @@ function buildOwnNodeDiff(
       valueA,
       valueB,
     };
-    const { significance } = classifyDiff(rawDiff, rules);
-    const classifiedBy = rules.find((r) => r.classify?.(rawDiff))?.name;
+    // classifyDiff already returns the winning rule — re-scanning rules with
+    // find() here used to invoke every classify() a second time per field.
+    const { significance, classifiedBy } = classifyDiff(rawDiff, rules);
     fieldVerdicts.push({
       field,
       valueA,
