@@ -30,3 +30,5 @@ bun.lockb
 
 # Logs
 *.log
+
+.env

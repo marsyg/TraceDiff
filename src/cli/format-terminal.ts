@@ -148,7 +148,11 @@ export function formatTerminal(summary: DiffSummary, options: TerminalFormatOpti
 }
 
 function formatDiffItem(d: DiffResult, num: number, c: Record<string, string>): string {
-  const pathArr = d.pathB ?? d.pathA ?? [];
+  // Show the path where the node actually lives: removed nodes never existed
+  // in B (their pathB is just the parent anchor), added nodes never existed
+  // in A. The anchor paths stay on the DiffResult for consumers — this is
+  // display only.
+  const pathArr = d.type === "removed" ? (d.pathA ?? d.pathB ?? []) : (d.pathB ?? d.pathA ?? []);
   const pathStr = pathArr.length > 0 ? pathArr.join(" > ") : "(root)";
 
   const typeUpper = d.type.toUpperCase();
