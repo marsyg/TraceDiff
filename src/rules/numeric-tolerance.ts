@@ -20,7 +20,7 @@ export interface NumericToleranceRuleConfig {
  */
 export const makeNumericTolerance = (options: NumericToleranceRuleConfig): EquivalenceRule => {
   const relativeTolerance = options.relativeTolerance ?? 0.05;
-  const logBucketSize = 2* Math.log1p(relativeTolerance);
+  const logBucketSize = 2 * Math.log1p(relativeTolerance);
 
   return {
     name: "numeric-tolerance",

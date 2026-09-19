@@ -16,7 +16,7 @@ export function buildMerkleTree(node: TraceNode, rules: EquivalenceRule[]): Merk
   // adding/removing/reordering children in normalize().
   let childNodes = node.children.map((child) => buildMerkleTree(child, rules));
 
-   if (shouldSortChildren(normalized, rules)) {
+  if (shouldSortChildren(normalized, rules)) {
     // Sort ONCE, then use this same order for both hash computations below.
     // Sorting raw and normalized children independently would let the two
     // hashes drift out of sync with each other for reasons that have
