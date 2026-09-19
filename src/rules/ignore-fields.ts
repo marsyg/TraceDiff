@@ -13,13 +13,23 @@ export function makeIgnoreFields(fields: string[]): EquivalenceRule {
       fields.length > 0
         ? `Ignores user-specified fields: ${fields.join(", ")}`
         : "Ignores user-specified fields (none configured).",
+    fuse: { kind: "ignore-fields", fields: [...fields] },
 
     normalize(node) {
+      // Fast path: with no configured fields (the default) there is nothing
+      // to strip — return the node as-is instead of rebuilding its attribute
+      // map on every Merkle visit.
+      if (blocked.size === 0) return node;
+      let mutated = false;
       const attributes: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(node.attributes)) {
-        if (!blocked.has(key)) attributes[key] = value;
+        if (blocked.has(key)) {
+          mutated = true;
+          continue;
+        }
+        attributes[key] = value;
       }
-      return { ...node, attributes };
+      return mutated ? { ...node, attributes } : node;
     },
   };
 }

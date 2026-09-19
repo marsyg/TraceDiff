@@ -13,9 +13,23 @@ export interface RawDiff {
   valueB?: unknown;
 }
 
+/**
+ * Machine-readable summary of what a rule's normalize() does, for the
+ * composed fast path in registry.ts. Rules WITHOUT a fuse descriptor are
+ * treated as opaque: any array containing one falls back to sequential
+ * reduce(), so custom rules always behave exactly as before.
+ */
+export type RuleFuse =
+  | { kind: "ignore-timestamps" }
+  | { kind: "canonicalize-ids" }
+  | { kind: "numeric-tolerance"; tolerance: number }
+  | { kind: "ignore-fields"; fields: string[] }
+  | { kind: "passthrough" };
+
 export interface EquivalenceRule {
   name: string;
   description: string;
+  fuse?: RuleFuse;
 
   // Runs on every node BEFORE hashing. This is what lets identical-after-
   // normalization subtrees collapse to the same Merkle hash and get

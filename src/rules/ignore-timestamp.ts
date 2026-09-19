@@ -19,9 +19,9 @@ const TIMESTAMP_LEAVES = new Set([
   "recorded_at",
 ]);
 
-const TIMESTAMP_TOKEN = "__TIMESTAMP__";
+export const TIMESTAMP_TOKEN = "__TIMESTAMP__";
 
-function isTimestampKey(key: string): boolean {
+export function isTimestampKey(key: string): boolean {
   const leaf = key.split(/[._]/).pop()?.toLowerCase() ?? "";
   return TIMESTAMP_LEAVES.has(leaf);
 }
@@ -29,6 +29,7 @@ function isTimestampKey(key: string): boolean {
 export const ignoreTimestamps = (): EquivalenceRule => ({
   name: "ignore-timestamps",
   description: "Ignores timestamp fields",
+  fuse: { kind: "ignore-timestamps" },
 
   normalize(node) {
     const attributes: Record<string, unknown> = {};

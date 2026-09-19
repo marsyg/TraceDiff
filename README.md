@@ -129,7 +129,7 @@ It replaces ESLint + Prettier. Every contributor gets the same output automatica
 ### Fix before committing
 
 ```bash
-pnpm lint:fix && pnpm format
+bun run lint:fix && bun run format
 ```
 
 ### VS Code setup
@@ -169,7 +169,7 @@ tracediff/
 ├── infra/
 │   ├── template.yaml       # SAM/CloudFormation — all AWS resources
 │   └── deploy.sh           # One-command: bun build → sam build → sam deploy
-├── dist/lambda/            # Bundled Lambda handlers (git-ignored, built by pnpm build)
+├── dist/lambda/            # Bundled Lambda handlers (git-ignored, built by bun run build)
 ├── .vscode/
 │   └── settings.json       # Biome format-on-save for the whole team
 ├── package.json
@@ -188,19 +188,31 @@ tracediff/
 # Auto-detect format, all default rules
 bun run src/cli/main.ts trace_a.json trace_b.json
 
-# With stats + specific rules
+# With stats + specific rules (short flags: -r, -s)
 bun run src/cli/main.ts trace_a.json trace_b.json \
-  --rules ignore-timestamps,canonicalize-ids,numeric-tolerance \
-  --stats
+  -r ignore-timestamps,canonicalize-ids,numeric-tolerance \
+  -s
 
-# Generate HTML visualization
-bun run src/cli/main.ts trace_a.json trace_b.json --html-out diff.html
+# List available equivalence rules
+bun run src/cli/main.ts --list-rules
 
-# JSON output for machine consumption
-bun run src/cli/main.ts trace_a.json trace_b.json --output json
+# Show noise diffs + write shareable HTML report
+bun run src/cli/main.ts trace_a.json trace_b.json --include-noise --html-out report.html
+
+# JSON output for machine consumption (short flag: -o)
+bun run src/cli/main.ts trace_a.json trace_b.json -o json > diff.json
+
+# Disable colors (also respects NO_COLOR=1)
+bun run src/cli/main.ts trace_a.json trace_b.json --no-color
 
 # Exit codes: 0 = no semantic diffs  |  1 = semantic diffs found  |  2 = error
 ```
+
+Full options: `bun run src/cli/main.ts --help`.
+Compare flags: `-f/--format tree|flat|otel`, `-r/--rules <list>`, `--no-rules`,
+`--ignore-fields <list>`, `--tolerance 5%`, `--max-depth 1000`.
+Output flags: `-o/--output terminal|json|html`, `-s/--stats`, `--include-noise`,
+`--html-out <path>`, `-q/--quiet`, `--no-color`.
 
 ---
 
@@ -234,11 +246,13 @@ Test files: `test/`. Integration tests use fixtures from `fixtures/`.
 ## Benchmarks
 
 ```bash
-pnpm bench
+bun run bench
+bun run bench -- --include-huge --csv /tmp/bench.csv
 ```
 
-Runs the full matrix `[1K, 10K, 100K, 1M] × [5, 50, 500 diffs]`.
-Outputs a formatted table + `bench-results.csv`.
+Runs the default matrix `1K/5, 10K/50, 100K/100` (deterministic seeds).
+Add `--include-huge` for the opt-in 1M-node cell (needs GBs of RAM).
+Outputs a formatted table + `bench-results.csv` (override with `--csv <path>`).
 
 | Nodes | Diffs | Skip % | Diff Time | Total |
 |-------|-------|--------|-----------|-------|
@@ -257,7 +271,7 @@ Outputs a formatted table + `bench-results.csv`.
 bash infra/deploy.sh
 
 # Build Lambda handlers only
-pnpm build
+bun run build
 ```
 
 The deploy script:
@@ -285,7 +299,7 @@ The deploy script:
 1. **`pnpm install` after every pull** — don't assume your `node_modules` is current
 2. **Never commit `dist/`** — it's git-ignored, always rebuilt
 3. **Never commit `node_modules/`** — same
-4. **Run `pnpm check` before every push** — catches lint + format before CI does
+4. **Run `bun run check` before every push** — catches lint + format before CI does
 5. **Coordinate on `infra/template.yaml`** — CloudFormation conflicts are painful to resolve
 
 ### Branch ownership (30h hackathon)
