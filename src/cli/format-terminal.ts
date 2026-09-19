@@ -62,7 +62,7 @@ export function formatTerminal(summary: DiffSummary, options: TerminalFormatOpti
   if (summary.diffs.length === 0) {
     lines.push(` ${c.bgGreen} IDENTICAL ${c.reset} No differences found (traces are equivalent)\n`);
   } else {
-    // 1. Semantic
+    // 1. Semantic — real behavioral changes, always shown.
     if (semantic.length > 0) {
       const label =
         semantic.length === 1 ? "1 difference found" : `${semantic.length} differences found`;
@@ -72,7 +72,7 @@ export function formatTerminal(summary: DiffSummary, options: TerminalFormatOpti
       }
     }
 
-    // 2. Uncertain
+    // 2. Uncertain — needs human judgment, always shown.
     if (uncertain.length > 0) {
       const label = uncertain.length === 1 ? "1 difference" : `${uncertain.length} differences`;
       lines.push(` ${c.bgYellow} UNCERTAIN ${c.reset}  ${c.bold}${c.yellow}${label}${c.reset}\n`);
@@ -81,13 +81,17 @@ export function formatTerminal(summary: DiffSummary, options: TerminalFormatOpti
       }
     }
 
-    // 3. Noise (optional)
+    // 3. Noise — hidden by default to keep the signal readable.
     if (options.includeNoise && noise.length > 0) {
       const label = noise.length === 1 ? "1 noise difference" : `${noise.length} noise differences`;
       lines.push(` ${c.bgBlue} NOISE ${c.reset}  ${c.bold}${c.blue}${label}${c.reset}\n`);
       for (const d of noise) {
         lines.push(formatDiffItem(d, counter++, c));
       }
+    } else if (!options.includeNoise && noise.length > 0) {
+      const label =
+        noise.length === 1 ? "+1 noise diff hidden" : `+${noise.length} noise diffs hidden`;
+      lines.push(`${c.dim}${label} — re-run with --include-noise to show${c.reset}\n`);
     }
   }
 
@@ -121,6 +125,25 @@ export function formatTerminal(summary: DiffSummary, options: TerminalFormatOpti
     lines.push(`  Total:             ${c.bold}${summary.timing.totalMs.toFixed(1)} ms${c.reset}\n`);
   }
 
+  // ── Result footer — mirrors the process exit code ────────────────────────
+  if (semantic.length > 0) {
+    const uncertainSuffix = uncertain.length > 0 ? ` · ${uncertain.length} uncertain` : "";
+    lines.push(
+      `${c.red}${c.bold}✖ Result:${c.reset} ${semantic.length} semantic${uncertainSuffix} — exit 1`,
+    );
+  } else if (summary.diffs.length === 0) {
+    lines.push(`${c.green}${c.bold}✓ Result:${c.reset} traces are equivalent — exit 0`);
+  } else {
+    lines.push(
+      `${c.green}${c.bold}✓ Result:${c.reset} no semantic diffs (${uncertain.length} uncertain, ${noise.length} noise) — exit 0`,
+    );
+  }
+  if (!options.stats && semantic.length > 0) {
+    lines.push(
+      `${c.dim}Tip: --stats for timing · --html-out report.html for a shareable report${c.reset}`,
+    );
+  }
+
   return lines.join("\n");
 }
 
@@ -136,7 +159,8 @@ function formatDiffItem(d: DiffResult, num: number, c: Record<string, string>): 
   else typeBadge = `${c.cyan}${c.bold}${typeUpper}${c.reset}`;
 
   const numStr = `  ${num}.`.padEnd(5);
-  const header = `${c.dim}${numStr}${c.reset}${typeBadge}  ${c.cyan}${pathStr}${c.reset}`;
+  const via = d.classifiedBy ? ` ${c.dim}[via ${d.classifiedBy}]${c.reset}` : "";
+  const header = `${c.dim}${numStr}${c.reset}${typeBadge}  ${c.cyan}${pathStr}${c.reset}${via}`;
 
   const detailLines: string[] = [];
   if (d.type === "added") {

@@ -1,20 +1,26 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { compareTraces } from "../core/compare-traces.js";
-import type { TraceNode } from "../core/type.js";
+import type { DiffSummary, TraceNode } from "../core/type.js";
 import { autoDetect, parseFlatSpans, parseJsonTree, parseOtel } from "../parsers/index.js";
 import { buildRuleSet, type RuleSetOptions } from "../rules/registry.js";
-import { getHelpText, parseCliArgs } from "./args.js";
+import { AVAILABLE_RULES, getHelpText, getRulesText, parseCliArgs, VERSION } from "./args.js";
 import { formatHtml } from "./format-html.js";
 import { formatTerminal } from "./format-terminal.js";
+
+function fail(message: string): 2 {
+  // Some messages already carry their own Tip (e.g. --list-rules hint).
+  const suffix = message.includes("Tip:") ? "" : "\n  Tip: run 'tracediff --help' for usage.";
+  console.error(`✖ Error: ${message}${suffix}`);
+  return 2;
+}
 
 export function run(argv: string[] = process.argv.slice(2)): number {
   let args: ReturnType<typeof parseCliArgs>;
   try {
     args = parseCliArgs(argv);
   } catch (err: unknown) {
-    console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
-    return 2;
+    return fail(err instanceof Error ? err.message : String(err));
   }
 
   if (args.help) {
@@ -23,18 +29,21 @@ export function run(argv: string[] = process.argv.slice(2)): number {
   }
 
   if (args.version) {
-    process.stdout.write("tracediff v0.1.0\n");
+    process.stdout.write(`${VERSION}\n`);
+    return 0;
+  }
+
+  if (args.listRules) {
+    process.stdout.write(`${getRulesText()}\n`);
     return 0;
   }
 
   // ── Read files ─────────────────────────────────────────────────────────────
   if (!existsSync(args.fileA)) {
-    console.error(`Error: File not found: "${args.fileA}"`);
-    return 2;
+    return fail(`File not found: "${args.fileA}". Check the path and try again.`);
   }
   if (!existsSync(args.fileB)) {
-    console.error(`Error: File not found: "${args.fileB}"`);
-    return 2;
+    return fail(`File not found: "${args.fileB}". Check the path and try again.`);
   }
 
   let rawA: unknown;
@@ -42,19 +51,17 @@ export function run(argv: string[] = process.argv.slice(2)): number {
   try {
     rawA = JSON.parse(readFileSync(args.fileA, "utf8"));
   } catch (err: unknown) {
-    console.error(
-      `Error: Failed to parse JSON in "${args.fileA}": ${err instanceof Error ? err.message : String(err)}`,
+    return fail(
+      `Failed to parse JSON in "${args.fileA}": ${err instanceof Error ? err.message : String(err)}`,
     );
-    return 2;
   }
 
   try {
     rawB = JSON.parse(readFileSync(args.fileB, "utf8"));
   } catch (err: unknown) {
-    console.error(
-      `Error: Failed to parse JSON in "${args.fileB}": ${err instanceof Error ? err.message : String(err)}`,
+    return fail(
+      `Failed to parse JSON in "${args.fileB}": ${err instanceof Error ? err.message : String(err)}`,
     );
-    return 2;
   }
 
   // ── Parse traces ───────────────────────────────────────────────────────────
@@ -65,19 +72,17 @@ export function run(argv: string[] = process.argv.slice(2)): number {
   try {
     traceA = parseInput(rawA, args.format);
   } catch (err: unknown) {
-    console.error(
-      `Error: Failed to parse trace A ("${args.fileA}"): ${err instanceof Error ? err.message : String(err)}`,
+    return fail(
+      `Failed to parse trace A ("${args.fileA}"): ${err instanceof Error ? err.message : String(err)}\n  Tip: try --format tree | flat | otel if auto-detect picked the wrong parser.`,
     );
-    return 2;
   }
 
   try {
     traceB = parseInput(rawB, args.format);
   } catch (err: unknown) {
-    console.error(
-      `Error: Failed to parse trace B ("${args.fileB}"): ${err instanceof Error ? err.message : String(err)}`,
+    return fail(
+      `Failed to parse trace B ("${args.fileB}"): ${err instanceof Error ? err.message : String(err)}\n  Tip: try --format tree | flat | otel if auto-detect picked the wrong parser.`,
     );
-    return 2;
   }
 
   const parseMs = performance.now() - parseStart;
@@ -93,21 +98,20 @@ export function run(argv: string[] = process.argv.slice(2)): number {
   const buildRules = () => buildRuleSet(ruleOptions);
 
   // ── Compare traces ─────────────────────────────────────────────────────────
-  const summary = compareTraces(traceA, traceB, {
-    buildRules,
-    maxDepth: args.maxDepth,
-    parseMs,
-  });
+  // buildRules() throws on unknown --rules names; surface it as a clean
+  // exit-2 error instead of an uncaught exception with a stack trace.
+  let summary: DiffSummary;
+  try {
+    summary = compareTraces(traceA, traceB, {
+      buildRules,
+      maxDepth: args.maxDepth,
+      parseMs,
+    });
+  } catch (err: unknown) {
+    return fail(err instanceof Error ? err.message : String(err));
+  }
 
-  const activeRules = args.noRules
-    ? []
-    : (args.rules ?? [
-        "ignore-timestamps",
-        "canonicalize-ids",
-        "numeric-tolerance",
-        "sort-concurrent",
-        "ignore-fields",
-      ]);
+  const activeRules = args.noRules ? [] : (args.rules ?? [...AVAILABLE_RULES]);
 
   // ── Optional HTML file export ──────────────────────────────────────────────
   if (args.htmlOut) {
@@ -119,10 +123,9 @@ export function run(argv: string[] = process.argv.slice(2)): number {
       });
       writeFileSync(args.htmlOut, htmlContent, "utf8");
     } catch (err: unknown) {
-      console.error(
-        `Error: Failed to write HTML output to "${args.htmlOut}": ${err instanceof Error ? err.message : String(err)}`,
+      return fail(
+        `Failed to write HTML output to "${args.htmlOut}": ${err instanceof Error ? err.message : String(err)}`,
       );
-      return 2;
     }
   }
 
@@ -146,6 +149,7 @@ export function run(argv: string[] = process.argv.slice(2)): number {
           activeRules,
           stats: args.stats,
           includeNoise: args.includeNoise,
+          noColor: args.noColor,
         })}\n`,
       );
     }
