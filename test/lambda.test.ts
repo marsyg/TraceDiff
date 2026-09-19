@@ -6,7 +6,7 @@ import { handler as diffWorkerHandler } from "../src/lambda/diff-worker.js";
 import { handler as getJobHandler } from "../src/lambda/get-job.js";
 import { handler as loadTracesHandler } from "../src/lambda/load-traces.js";
 import { handler as presignHandler } from "../src/lambda/presign.js";
-import { docClient, s3Client } from "../src/lambda/shared.js";
+import { docClient, s3Client, sfnClient } from "../src/lambda/shared.js";
 import { handler as submitJobHandler } from "../src/lambda/submit-job.js";
 import { handler as updateStatusHandler } from "../src/lambda/update-status.js";
 
@@ -166,7 +166,11 @@ describe("Lambda — submit-job handler", () => {
 
   test("returns 202 and creates job when payload is valid", async () => {
     const origSend = docClient.send;
+    const origSfn = sfnClient.send;
     docClient.send = (async () => ({})) as unknown as typeof docClient.send;
+    sfnClient.send = (async () => ({
+      executionArn: "arn:aws:states:mock",
+    })) as unknown as typeof sfnClient.send;
 
     try {
       const event = makeMockApiEvent({
@@ -185,6 +189,7 @@ describe("Lambda — submit-job handler", () => {
       expect(body.status).toBe("PENDING");
     } finally {
       docClient.send = origSend;
+      sfnClient.send = origSfn;
     }
   });
 });

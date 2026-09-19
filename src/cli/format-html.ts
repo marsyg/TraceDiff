@@ -1,13 +1,33 @@
 import type { DiffSummary } from "../core/type.js";
+import type { FinOpsDiffResult } from "../finops/costEngine.js";
 
 export interface HtmlFormatOptions {
   fileA: string;
   fileB: string;
   activeRules?: string[];
+  finops?: FinOpsDiffResult;
 }
 
 export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): string {
-  const jsonSummary = JSON.stringify(summary, null, 2);
+  // Serialize DiffSummary with shallow children to prevent 100MB+ HTML payloads from nested AST diff nodes
+  const jsonSummary = JSON.stringify(
+    summary,
+    (key, value) => {
+      if (
+        key === "children" &&
+        Array.isArray(value) &&
+        value.length > 0 &&
+        typeof value[0] === "object" &&
+        value[0] !== null &&
+        "id" in value[0]
+      ) {
+        return `[${value.length} children]`;
+      }
+      if (key === "raw") return undefined;
+      return value;
+    },
+    2,
+  );
   const rulesList =
     options.activeRules && options.activeRules.length > 0
       ? options.activeRules.join(", ")
@@ -171,6 +191,23 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
     .badge-added { background: var(--green-bg); color: var(--green); }
     .badge-removed { background: var(--semantic-bg); color: var(--semantic); }
     .badge-modified { background: var(--uncertain-bg); color: var(--uncertain); }
+    .finops-section { margin-bottom: 2rem; background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; }
+    .finops-title { color: var(--heading); font-size: 1.25rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+    .finops-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .finops-metric { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 1rem; text-align: center; }
+    .finops-val { font-size: 1.4rem; font-weight: 700; color: var(--heading); margin-bottom: 0.2rem; }
+    .finops-val.red { color: var(--semantic); }
+    .finops-val.green { color: var(--green); }
+    .finops-lbl { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .finops-breakdown { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem; font-size: 0.88rem; }
+    .finops-category { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; display: flex; justify-content: space-between; }
+    .finops-drivers { margin-top: 1rem; }
+    .finops-drivers h4 { font-size: 0.95rem; color: var(--heading); margin-bottom: 0.5rem; }
+    .driver-item { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; margin-bottom: 0.5rem; font-size: 0.88rem; }
+    .driver-header { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 0.25rem; }
+    .driver-path { color: #79c0ff; font-family: ui-monospace, monospace; font-size: 0.82rem; }
+    .driver-reason { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.25rem; }
+    .finops-disclaimer { font-size: 0.8rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 0.75rem; margin-top: 1rem; }
     .json-section { margin-top: 3rem; }
     details { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem; }
     summary { cursor: pointer; color: var(--text); font-weight: 600; }
@@ -210,6 +247,114 @@ export function formatHtml(summary: DiffSummary, options: HtmlFormatOptions): st
         <div class="stat-label">Total Execution Time</div>
       </div>
     </div>
+${
+  options.finops
+    ? `
+    <section class="finops-section">
+      <div class="finops-title">💰 FinOps Cost Regression Analysis</div>
+      <div class="finops-grid">
+        <div class="finops-metric">
+          <div class="finops-val">$${options.finops.baselineCostUsd.toFixed(6)}</div>
+          <div class="finops-lbl">Baseline Cost / Req</div>
+        </div>
+        <div class="finops-metric">
+          <div class="finops-val">$${options.finops.targetCostUsd.toFixed(6)}</div>
+          <div class="finops-lbl">Target Cost / Req</div>
+        </div>
+        <div class="finops-metric">
+          <div class="finops-val ${options.finops.deltaUsd > 0 ? "red" : "green"}">
+            ${options.finops.deltaUsd > 0 ? "+" : ""}$${options.finops.deltaUsd.toFixed(6)}
+            (${options.finops.percentageChange > 0 ? "+" : ""}${options.finops.percentageChange.toFixed(1)}%)
+          </div>
+          <div class="finops-lbl">Cost Delta / Req</div>
+        </div>
+        <div class="finops-metric">
+          <div class="finops-val ${options.finops.projectedMonthlyUsd > 0 ? "red" : "green"}">
+            ${options.finops.deltaUsd > 0 ? "+" : ""}$${Math.abs(options.finops.projectedMonthlyUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mo
+          </div>
+          <div class="finops-lbl">Projected Monthly Impact (@ ${options.finops.requestsPerMonth.toLocaleString()} reqs)</div>
+        </div>
+      </div>
+
+      <div class="finops-breakdown">
+        <div class="finops-category">
+          <span>Compute (Lambda):</span>
+          <strong>${options.finops.categories.delta.computeUsd >= 0 ? "+" : ""}$${options.finops.categories.delta.computeUsd.toFixed(6)}</strong>
+        </div>
+        <div class="finops-category">
+          <span>Database (DynamoDB):</span>
+          <strong>${options.finops.categories.delta.databaseUsd >= 0 ? "+" : ""}$${options.finops.categories.delta.databaseUsd.toFixed(6)}</strong>
+        </div>
+        <div class="finops-category">
+          <span>Storage (S3):</span>
+          <strong>${options.finops.categories.delta.storageUsd >= 0 ? "+" : ""}$${options.finops.categories.delta.storageUsd.toFixed(6)}</strong>
+        </div>
+        <div class="finops-category">
+          <span>LLM / GenAI:</span>
+          <strong>${options.finops.categories.delta.llmUsd >= 0 ? "+" : ""}$${options.finops.categories.delta.llmUsd.toFixed(6)}</strong>
+        </div>
+      </div>
+
+      ${
+        options.finops.topCostDrivers.length > 0
+          ? `
+      <div class="finops-drivers">
+        <h4>Top Cost Drivers</h4>
+        ${options.finops.topCostDrivers
+          .map(
+            (d, i) => `
+          <div class="driver-item">
+            <div class="driver-header">
+              <span>#${i + 1} ${escapeHtml(d.label)}</span>
+              <span class="${d.deltaUsd > 0 ? "badge-semantic" : "badge-added"}" style="padding: 0.2rem 0.5rem; border-radius: 4px;">
+                ${d.deltaUsd > 0 ? "+" : ""}$${d.deltaUsd.toFixed(6)}
+              </span>
+            </div>
+            <div class="driver-path">${escapeHtml(d.path)}</div>
+            <div class="driver-reason">${escapeHtml(d.reason)}</div>
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+      `
+          : ""
+      }
+
+      ${
+        options.finops.remediations && options.finops.remediations.length > 0
+          ? `
+      <div class="finops-drivers" style="margin-top: 1.5rem;">
+        <h4>💡 Prescriptive Remediation Advisor (7 Cloud Optimization Patterns)</h4>
+        ${options.finops.remediations
+          .map(
+            (r, i) => `
+          <div class="driver-item" style="border-left: 3px solid var(--green); padding: 1rem;">
+            <div class="driver-header">
+              <span><strong>#${i + 1} [${escapeHtml(r.patternName)}]</strong> &bull; <code>${escapeHtml(r.affectedSpanId)}</code></span>
+              <span class="badge-added" style="padding: 0.2rem 0.6rem; border-radius: 4px; font-weight: 700;">
+                Save up to $${r.potentialMonthlySavingsUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mo
+              </span>
+            </div>
+            <div class="driver-reason" style="color: var(--heading); margin: 0.5rem 0;"><strong>Action:</strong> ${escapeHtml(r.actionableFix)}</div>
+            <pre class="raw-json" style="margin-top: 0.5rem; background: #000; padding: 0.75rem; font-size: 0.8rem; border-radius: 4px;">${escapeHtml(r.codeSnippet)}</pre>
+          </div>
+        `,
+          )
+          .join("")}
+      </div>
+      `
+          : ""
+      }
+
+      <div class="finops-disclaimer">
+        <strong>Price Table:</strong> ${escapeHtml(options.finops.priceTableVersion)} &bull; 
+        <strong>Notice:</strong> ${escapeHtml(options.finops.disclaimer)}
+      </div>
+    </section>
+`
+    : ""
+}
 
     <div class="filter-bar">
       <button class="filter-btn active" onclick="filterDiffs('all', this)">All (${summary.diffs.length})</button>

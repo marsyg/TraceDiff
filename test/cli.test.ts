@@ -8,6 +8,8 @@ const IDENTICAL_A = join(FIXTURES_DIR, "small-identical", "a.json");
 const IDENTICAL_B = join(FIXTURES_DIR, "small-identical", "b.json");
 const DIFF_A = join(FIXTURES_DIR, "small-diff", "a.json");
 const DIFF_B = join(FIXTURES_DIR, "small-diff", "b.json");
+const DEMO_A = join(FIXTURES_DIR, "demo", "trace_a.json");
+const DEMO_B = join(FIXTURES_DIR, "demo", "trace_b.json");
 
 function captureRun(args: string[]): { code: number; stdout: string; stderr: string } {
   let stdout = "";
@@ -126,5 +128,62 @@ describe("CLI — trace diffing execution", () => {
     expect(code).toBe(1);
     const parsed = JSON.parse(stdout);
     expect(parsed.diffs.length).toBeGreaterThan(0);
+  });
+
+  test("supports --finops flag in terminal output", () => {
+    const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--finops"]);
+    expect(code).toBe(1);
+    expect(stdout).toContain("━━━ FinOps Cost Impact ━━━━━━━━━━━━━━━━━━━━━━━━");
+    expect(stdout).toContain("Baseline trace:");
+    expect(stdout).toContain("Target trace:");
+    expect(stdout).toContain("Monthly impact:");
+    expect(stdout).toContain("Disclaimer:");
+  });
+
+  test("supports --finops displaying prescriptive fixes when cost regresses", () => {
+    const { code, stdout } = captureRun([DEMO_A, DEMO_B, "--finops"]);
+    expect(code).toBe(1);
+    expect(stdout).toContain("💡 Prescriptive Fixes & Cost Optimization:");
+    expect(stdout).toContain("Cold Storage Cache Miss");
+    expect(stdout).toContain("Save up to");
+  });
+
+  test("supports --finops with custom --requests-per-month", () => {
+    const { code, stdout } = captureRun([
+      DIFF_A,
+      DIFF_B,
+      "--finops",
+      "--requests-per-month",
+      "50000000",
+      "--output",
+      "json",
+    ]);
+    expect(code).toBe(1);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.finops).toBeDefined();
+    expect(parsed.finops.requestsPerMonth).toBe(50000000);
+    expect(parsed.finops.remediations).toBeDefined();
+    expect(Array.isArray(parsed.finops.remediations)).toBe(true);
+  });
+
+  test("supports --finops with --output json including finops object", () => {
+    const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--finops", "--output", "json"]);
+    expect(code).toBe(1);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.finops).toBeDefined();
+    expect(parsed.finops.baselineCostUsd).toBeDefined();
+    expect(parsed.finops.targetCostUsd).toBeDefined();
+    expect(parsed.finops.projectedMonthlyUsd).toBeDefined();
+    expect(parsed.finops.topCostDrivers).toBeDefined();
+  });
+
+  test("without --finops, output does not include finops object or section", () => {
+    const { code, stdout } = captureRun([DIFF_A, DIFF_B, "--output", "json"]);
+    expect(code).toBe(1);
+    const parsed = JSON.parse(stdout);
+    expect(parsed.finops).toBeUndefined();
+
+    const termRun = captureRun([DIFF_A, DIFF_B]);
+    expect(termRun.stdout).not.toContain("FinOps Cost Impact");
   });
 });
