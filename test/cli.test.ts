@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { existsSync, unlinkSync } from "node:fs";
+import { existsSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { run } from "../src/cli/main.js";
 
@@ -8,8 +8,6 @@ const IDENTICAL_A = join(FIXTURES_DIR, "small-identical", "a.json");
 const IDENTICAL_B = join(FIXTURES_DIR, "small-identical", "b.json");
 const DIFF_A = join(FIXTURES_DIR, "small-diff", "a.json");
 const DIFF_B = join(FIXTURES_DIR, "small-diff", "b.json");
-const DEMO_A = join(FIXTURES_DIR, "demo", "trace_a.json");
-const DEMO_B = join(FIXTURES_DIR, "demo", "trace_b.json");
 
 function captureRun(args: string[]): { code: number; stdout: string; stderr: string } {
   let stdout = "";
@@ -141,11 +139,40 @@ describe("CLI — trace diffing execution", () => {
   });
 
   test("supports --finops displaying prescriptive fixes when cost regresses", () => {
-    const { code, stdout } = captureRun([DEMO_A, DEMO_B, "--finops"]);
-    expect(code).toBe(1);
-    expect(stdout).toContain("💡 Prescriptive Fixes & Cost Optimization:");
-    expect(stdout).toContain("Cold Storage Cache Miss");
-    expect(stdout).toContain("Save up to");
+    const tempA = join(FIXTURES_DIR, "temp_finops_a.json");
+    const tempB = join(FIXTURES_DIR, "temp_finops_b.json");
+    writeFileSync(
+      tempA,
+      JSON.stringify({ id: "root", type: "span", label: "api", attributes: {}, children: [] }),
+    );
+    writeFileSync(
+      tempB,
+      JSON.stringify({
+        id: "root",
+        type: "span",
+        label: "api",
+        attributes: {},
+        children: [
+          {
+            id: "s3-call",
+            type: "span",
+            label: "s3_read_cold_cache",
+            attributes: { "rpc.service": "s3", "db.operation": "GetObject" },
+            children: [],
+          },
+        ],
+      }),
+    );
+    try {
+      const { code, stdout } = captureRun([tempA, tempB, "--finops"]);
+      expect(code).toBe(1);
+      expect(stdout).toContain("💡 Prescriptive Fixes & Cost Optimization:");
+      expect(stdout).toContain("Cold Storage Cache Miss");
+      expect(stdout).toContain("Save up to");
+    } finally {
+      if (existsSync(tempA)) unlinkSync(tempA);
+      if (existsSync(tempB)) unlinkSync(tempB);
+    }
   });
 
   test("supports --finops with custom --requests-per-month", () => {
