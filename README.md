@@ -279,6 +279,17 @@ The deploy script:
 2. `sam build` — package using the pre-built JS (no tsc, no webpack)
 3. `sam deploy --guided` — interactive on first run; uses `samconfig.toml` after
 
+### Live Deployed Environment (`dev`)
+
+| Resource | Value |
+|---|---|
+| **API Gateway Endpoint** | `https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev/` |
+| **Region** | `us-east-1` |
+| **S3 Upload Bucket** | `tracediff-uploads-140023404870-dev` |
+| **DynamoDB Jobs Table** | `tracediff-jobs-dev` |
+| **DynamoDB Results Table** | `tracediff-results-dev` |
+| **Step Functions ARN** | `arn:aws:states:us-east-1:140023404870:stateMachine:DiffStateMachine-2ryHzalVPc5N` |
+
 ---
 
 ## Conflict Prevention Guide

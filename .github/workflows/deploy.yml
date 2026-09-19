@@ -1,0 +1,76 @@
+name: CI/CD Pipeline - TraceDiff AWS Deployment
+
+on:
+  push:
+    branches:
+      - main
+      - Lavanya
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  test-and-deploy:
+    name: Build, Test & Deploy to AWS
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun Environment
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Project Dependencies
+        run: bun install
+
+      - name: Run Test Suite
+        run: bun test
+
+      - name: Build Lambda Bundles
+        run: bun run build
+
+      - name: Setup AWS SAM CLI
+        uses: aws-actions/setup-sam@v2
+        with:
+          use-installer: true
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # -------------------------------------------------------------
+      # BACKEND DEPLOYMENT (AWS SAM)
+      # -------------------------------------------------------------
+      - name: Deploy Backend Stack via SAM
+        run: |
+          sam deploy \
+            --template-file infra/template.yaml \
+            --stack-name tracediff \
+            --region us-east-1 \
+            --capabilities CAPABILITY_IAM \
+            --resolve-s3 \
+            --s3-prefix tracediff \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides Environment="dev" CorsOrigin="*" RetentionDays=14
+
+      # -------------------------------------------------------------
+      # FRONTEND DEPLOYMENT (S3 + CLOUDFRONT)
+      # -------------------------------------------------------------
+      - name: Sync Frontend to S3 Static Web Bucket
+        run: |
+          aws s3 sync frontend/ s3://tracediff-web-140023404870-dev/ --delete
+
+      - name: Invalidate CloudFront Cache
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id E1574K2273MQ8K \
+            --paths "/*"

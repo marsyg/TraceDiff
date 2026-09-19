@@ -19,11 +19,23 @@ const TIMESTAMP_LEAVES = new Set([
   "recorded_at",
 ]);
 
+/**
+ * Segments that unambiguously mark a wall-clock instant wherever they
+ * appear in a key — e.g. "timestamp_raw", "timestamp_ms",
+ * "db.timestamp_iso". Deliberately narrow: generic words like "time" or
+ * "date" are NOT matched here, so "time_zone" or "date_of_birth" (a zone,
+ * a birth date — not instants of this run) stay semantic. Those keep the
+ * leaf-only behavior above.
+ */
+const INSTANT_MARKERS = new Set(["timestamp", "timestamps"]);
+
 export const TIMESTAMP_TOKEN = "__TIMESTAMP__";
 
 export function isTimestampKey(key: string): boolean {
-  const leaf = key.split(/[._]/).pop()?.toLowerCase() ?? "";
-  return TIMESTAMP_LEAVES.has(leaf);
+  const segments = key.split(/[._]/);
+  const leaf = segments[segments.length - 1]?.toLowerCase() ?? "";
+  if (TIMESTAMP_LEAVES.has(leaf)) return true;
+  return segments.some((seg) => INSTANT_MARKERS.has(seg.toLowerCase()));
 }
 
 export const ignoreTimestamps = (): EquivalenceRule => ({
