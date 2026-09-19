@@ -389,7 +389,8 @@ export function diffTraceCosts(
   drivers.sort((x, y) => y.deltaUsd - x.deltaUsd);
 
   const topCostDrivers = drivers.slice(0, 5);
-  const remediations = generateRemediations(topCostDrivers, rootB, requestsPerMonth);
+  const candidateDrivers = drivers.filter((d) => d.deltaUsd > 0).slice(0, 10);
+  const remediations = generateRemediations(candidateDrivers, rootB, requestsPerMonth);
 
   const evalDurationMs = performance.now() - startTime;
 
