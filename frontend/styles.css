@@ -29,7 +29,7 @@ html, body {
   background: linear-gradient(100deg, var(--surface) 30%, rgba(201, 162, 39, 0.15) 50%, var(--surface) 70%);
   background-size: 200% 100%;
   animation: flow 1.6s linear infinite;
-  border-color: var(--ink-noise) !important;
+  border-color: rgb(var(--ink-noise)) !important;
 }
 
 @keyframes skel { 0% { opacity: 0.45; } 50% { opacity: 1; } 100% { opacity: 0.45; } }
@@ -74,7 +74,7 @@ html, body {
   background: var(--hover-overlay);
 }
 
-.uncertain-outline { border: 1px dashed var(--ink-uncertain) !important; }
+.uncertain-outline { border: 1px dashed rgb(var(--ink-uncertain)) !important; }
 .tab-btn { transition: all var(--dur-med) var(--ease-out); }
 .dropzone.drag {
   border-color: var(--border-strong) !important;
@@ -83,8 +83,8 @@ html, body {
 .seg-btn[aria-pressed="false"] { opacity: 0.45; }
 
 mark.hl {
-  background: var(--ink-noise-bg);
-  color: var(--ink-noise);
+  background: rgb(var(--ink-noise) / 0.12);
+  color: rgb(var(--ink-noise));
   border-radius: var(--radius);
   padding: 0 2px;
 }

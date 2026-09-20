@@ -78,9 +78,9 @@ function paintSegButtons() {
     var on = !!state.showSig[sig];
     b.setAttribute("aria-pressed", String(on));
     var base = "seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border ";
-    var color = sig === "semantic" ? "border-[var(--ink-semantic)] text-[var(--ink-semantic)]"
-      : sig === "uncertain" ? "border-dashed border-[var(--ink-uncertain)] text-[var(--ink-uncertain)]"
-      : "border-[var(--ink-noise)] text-[var(--ink-noise)]";
+    var color = sig === "semantic" ? "border-[rgb(var(--ink-semantic))] text-[rgb(var(--ink-semantic))]"
+      : sig === "uncertain" ? "border-dashed border-[rgb(var(--ink-uncertain))] text-[rgb(var(--ink-uncertain))]"
+      : "border-[rgb(var(--ink-noise))] text-[rgb(var(--ink-noise))]";
     b.className = base + color;
     b.textContent = (sig === "semantic" ? "~ " : sig === "uncertain" ? "? " : "≈ ") + sig + " (" + counts[sig] + ")";
   });
@@ -112,7 +112,7 @@ function renderKpis() {
   el("k-nodes").textContent = aSize + " → " + bSize + " nodes";
   el("k-time").textContent = (s.timing && s.timing.totalMs != null ? Number(s.timing.totalMs).toLocaleString() + " ms total" : "--");
   // Identical traces read green, not broken: full skip, zero of everything.
-  el("k-skip").className = "font-mono text-4xl font-bold mt-1 " + (sem === 0 ? "text-[var(--ink-added)]" : "text-[var(--text-primary)]");
+  el("k-skip").className = "font-mono text-4xl font-bold mt-1 " + (sem === 0 ? "text-[rgb(var(--ink-added))]" : "text-[var(--text-primary)]");
 }
 
 // ---- Row model ------------------------------------------------------------
@@ -197,13 +197,13 @@ function expandAll() { setAllCollapsed(false); }
 function collapseAll() { setAllCollapsed(true); }
 
 function stateDot(st) {
-  if (st === "added") return "bg-[var(--ink-added)] glow-emerald";
-  if (st === "removed") return "border border-[var(--ink-removed)]";
-  if (st === "semantic") return "bg-[var(--ink-semantic)] glow-rose";
-  if (st === "uncertain") return "border border-dashed border-[var(--ink-uncertain)]";
-  if (st === "noise") return "bg-[var(--ink-noise)] glow-amber";
-  if (st === "below-sem") return "bg-[var(--ink-semantic)]";
-  if (st === "below-noise") return "bg-[var(--ink-noise)]";
+  if (st === "added") return "bg-[rgb(var(--ink-added))] glow-emerald";
+  if (st === "removed") return "border border-[rgb(var(--ink-removed))]";
+  if (st === "semantic") return "bg-[rgb(var(--ink-semantic))] glow-rose";
+  if (st === "uncertain") return "border border-dashed border-[rgb(var(--ink-uncertain))]";
+  if (st === "noise") return "bg-[rgb(var(--ink-noise))] glow-amber";
+  if (st === "below-sem") return "bg-[rgb(var(--ink-semantic))]";
+  if (st === "below-noise") return "bg-[rgb(var(--ink-noise))]";
   return "bg-[var(--text-muted)]";
 }
 function stateIcon(st) {
@@ -306,7 +306,7 @@ function renderTree() {
 
     var caretHtml = "";
     if (hasKids) {
-      caretHtml = '<button type="button" class="caret-btn w-4 h-4 cursor-pointer select-none text-[11px] shrink-0" data-key="' + esc(ni.ukey) + '" data-act="toggle-caret" title="' + (open ? 'Collapse branch' : 'Expand branch') + '">'
+      caretHtml = '<button type="button" class="caret-btn w-4 h-4 cursor-pointer select-none text-[11px] shrink-0" data-key="' + esc(ni.ukey) + '" data-act="toggle-caret" title="' + (open ? 'Collapse branch' : 'Expand branch') + '" aria-label="' + (open ? 'Collapse branch' : 'Expand branch') + ' ' + esc(ni.node.label) + '">'
         + (open ? '▾' : '▸')
         + '</button>';
     } else {

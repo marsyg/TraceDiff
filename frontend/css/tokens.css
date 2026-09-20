@@ -25,19 +25,22 @@
   --text-muted: #5c5e68;     /* ~2.8:1 — never body copy */
 
   /* ---- Ink: one saturated color per diff state, each with a RULE.
+     Stored as space-separated RGB triplets so every ink is
+     opacity-composable: rgb(var(--ink-x)) for solid, and
+     rgb(var(--ink-x) / <alpha>) for washes — no per-state -bg or
+     -subtle variant tokens needed. In Tailwind arbitrary values,
+     write underscores for spaces: bg-[rgb(var(--ink-x)_/_0.12)].
      Solid = noise/added/semantic. Outline-only = removed (solid stroke,
      never fill). Dashed-only = uncertain (never solid). Never a 7th. ---- */
-  --ink-noise: #c9a227;
-  --ink-noise-bg: rgba(201, 162, 39, 0.12);
-  --ink-added: #5fbf7a;
-  --ink-added-bg: rgba(95, 191, 122, 0.12);
-  --ink-removed: #e2703b; /* outline only — never fill */
-  --ink-semantic: #d63f3f; /* loudest in the system; quiet surfaces only */
-  --ink-semantic-bg: rgba(214, 63, 63, 0.12);
-  --ink-uncertain: #8d7fd1; /* dashed stroke only — never solid fill */
+  --ink-noise: 201 162 39;
+  --ink-added: 95 191 122;
+  --ink-removed: 226 112 59; /* outline only — never fill */
+  --ink-semantic: 214 63 63; /* loudest in the system; quiet surfaces only */
+  --ink-uncertain: 141 127 209; /* dashed stroke only — never solid fill */
 
-  /* ---- Status (pipeline stages, toasts, header dot): aliases of ink,
-     not new hues. A working pipeline is noise-colored, done is added,
+  /* ---- Status (pipeline stages, toasts, header dot): aliases of ink
+     triplets, not new hues. Consume as rgb(var(--status-*)) the same
+     way as ink. A working pipeline is noise-colored, done is added,
      failed is semantic — operators read one vocabulary everywhere. ---- */
   --status-working: var(--ink-noise);
   --status-done: var(--ink-added);
@@ -129,31 +132,31 @@ body {
    uncertain is dashed with no fill — the rule lives in the token
    comments above, this is just the enforcement. */
 .state-noise {
-  color: var(--ink-noise);
-  background: var(--ink-noise-bg);
+  color: rgb(var(--ink-noise));
+  background: rgb(var(--ink-noise) / 0.12);
   border-radius: var(--radius);
 }
 .state-added {
-  color: var(--ink-added);
-  background: var(--ink-added-bg);
+  color: rgb(var(--ink-added));
+  background: rgb(var(--ink-added) / 0.12);
   border-radius: var(--radius);
 }
 .state-removed {
-  color: var(--ink-removed);
+  color: rgb(var(--ink-removed));
   background: transparent;
-  border: 1px solid var(--ink-removed);
+  border: 1px solid rgb(var(--ink-removed));
   border-radius: var(--radius);
 }
 .state-semantic {
-  color: var(--ink-semantic);
-  background: var(--ink-semantic-bg);
+  color: rgb(var(--ink-semantic));
+  background: rgb(var(--ink-semantic) / 0.12);
   border-radius: var(--radius);
   font-weight: var(--weight-medium);
 }
 .state-uncertain {
-  color: var(--ink-uncertain);
+  color: rgb(var(--ink-uncertain));
   background: transparent;
-  border: 1px dashed var(--ink-uncertain);
+  border: 1px dashed rgb(var(--ink-uncertain));
   border-radius: var(--radius);
 }
 

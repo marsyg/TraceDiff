@@ -31,9 +31,9 @@ function icons() { try { if (window.lucide) window.lucide.createIcons(); } catch
 function setStatus(mode, text) {
   var dot = el("status-dot");
   dot.className = "w-2 h-2 rounded-full inline-block " + (
-    mode === "working" ? "bg-[var(--status-working)] glow-amber dot-live" :
-    mode === "done" ? "bg-[var(--status-done)] glow-emerald" :
-    mode === "error" ? "bg-[var(--status-error)] glow-rose" : "bg-[var(--text-muted)]");
+    mode === "working" ? "bg-[rgb(var(--status-working))] glow-amber dot-live" :
+    mode === "done" ? "bg-[rgb(var(--status-done))] glow-emerald" :
+    mode === "error" ? "bg-[rgb(var(--status-error))] glow-rose" : "bg-[var(--text-muted)]");
   el("status-text").textContent = text;
 }
 

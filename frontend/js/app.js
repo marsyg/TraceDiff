@@ -14,11 +14,11 @@ function renderPipeline() {
   var html = "";
   STAGES.forEach(function (s) {
     var st = stageState[s.key] || "idle";
-    var border = st === "done" ? "border-[var(--status-done)]" : st === "active" ? "stage-active" : "border-edge";
+    var border = st === "done" ? "border-[rgb(var(--status-done))]" : st === "active" ? "stage-active" : "border-edge";
     var badge = st === "done"
-      ? '<span class="w-4 h-4 rounded-full bg-[var(--status-done)] glow-emerald inline-block"></span>'
+      ? '<span class="w-4 h-4 rounded-full bg-[rgb(var(--status-done))] glow-emerald inline-block"></span>'
       : st === "active"
-        ? '<span class="w-4 h-4 rounded-full border-2 border-[var(--status-working)] border-t-transparent spinner inline-block"></span>'
+        ? '<span class="w-4 h-4 rounded-full border-2 border-[rgb(var(--status-working))] border-t-transparent spinner inline-block"></span>'
         : '<span class="w-4 h-4 rounded-full border border-[var(--border)] inline-block"></span>';
     html += '<div class="border rounded-lg px-3 py-2.5 bg-surface2 flex items-center gap-2.5 ' + border + '">'
       + badge
@@ -97,11 +97,11 @@ function ingestRecord(slot, rec) {
     rec.valid = true;
     el(slot === "A" ? "meta-a" : "meta-b").textContent =
       rec.nodeCount.toLocaleString() + " spans | " + fmtBytes(rec.size) + " | " + rec.name;
-    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "var(--status-done)";
+    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "rgb(var(--status-done))";
   } catch (e) {
     rec.valid = false;
     el(slot === "A" ? "meta-a" : "meta-b").textContent = "INVALID: " + (e instanceof Error ? e.message : String(e));
-    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "var(--status-error)";
+    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "rgb(var(--status-error))";
   }
   if (slot === "A") state.fileA = rec; else state.fileB = rec;
   updateRunBtn();

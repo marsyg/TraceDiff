@@ -13,17 +13,14 @@ tailwind.config = { theme: { extend: {
     surface2: "var(--surface-raised)",
     edge: "var(--border)",
     "edge-strong": "var(--border-strong)",
-    "ink-noise": "var(--ink-noise)",
-    "ink-noise-bg": "var(--ink-noise-bg)",
-    "ink-added": "var(--ink-added)",
-    "ink-added-bg": "var(--ink-added-bg)",
-    "ink-removed": "var(--ink-removed)",
-    "ink-semantic": "var(--ink-semantic)",
-    "ink-semantic-bg": "var(--ink-semantic-bg)",
-    "ink-uncertain": "var(--ink-uncertain)",
-    "status-working": "var(--status-working)",
-    "status-done": "var(--status-done)",
-    "status-error": "var(--status-error)"
+    "ink-noise": "rgb(var(--ink-noise))",
+    "ink-added": "rgb(var(--ink-added))",
+    "ink-removed": "rgb(var(--ink-removed))",
+    "ink-semantic": "rgb(var(--ink-semantic))",
+    "ink-uncertain": "rgb(var(--ink-uncertain))",
+    "status-working": "rgb(var(--status-working))",
+    "status-done": "rgb(var(--status-done))",
+    "status-error": "rgb(var(--status-error))"
   },
   fontFamily: {
     sans: ["var(--font-sans)", "sans-serif"],
@@ -31,7 +28,7 @@ tailwind.config = { theme: { extend: {
   }
 }}};
 </script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/lucide@1.47.0/dist/umd/lucide.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
@@ -137,14 +134,14 @@ tailwind.config = { theme: { extend: {
         <div class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-1.5">
           <i data-lucide="scissors" class="w-3.5 h-3.5"></i>Merkle skipped
         </div>
-        <div class="font-mono text-4xl font-bold mt-1 text-[var(--ink-added)]" id="k-skip">--</div>
+        <div class="font-mono text-4xl font-bold mt-1 text-[rgb(var(--ink-added))]" id="k-skip">--</div>
         <div class="font-mono text-[11px] text-[var(--text-secondary)] mt-0.5" id="k-skip-sub">--</div>
       </div>
       <div class="flex items-center gap-2 pb-1" role="group" aria-label="Diff counts by significance">
         <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] mr-1">diffs</span>
-        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-[var(--ink-semantic)] text-[var(--ink-semantic)] bg-[var(--ink-semantic-bg)]" id="k-sem" data-tip="Semantic regressions — behavior actually changed">--</span>
-        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-dashed border-[var(--ink-uncertain)] text-[var(--ink-uncertain)]" id="k-unc" data-tip="Uncertain — not fully explored, needs judgment">--</span>
-        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-[var(--ink-noise)] text-[var(--ink-noise)] bg-[var(--ink-noise-bg)]" id="k-noise" data-tip="Noise — judged safe by an equivalence rule">--</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-[rgb(var(--ink-semantic))] text-[rgb(var(--ink-semantic))] bg-[rgb(var(--ink-semantic)_/_0.12)]" id="k-sem" data-tip="Semantic regressions — behavior actually changed">--</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-dashed border-[rgb(var(--ink-uncertain))] text-[rgb(var(--ink-uncertain))]" id="k-unc" data-tip="Uncertain — not fully explored, needs judgment">--</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-[rgb(var(--ink-noise))] text-[rgb(var(--ink-noise))] bg-[rgb(var(--ink-noise)_/_0.12)]" id="k-noise" data-tip="Noise — judged safe by an equivalence rule">--</span>
       </div>
       <div class="ml-auto text-right pb-1">
         <div class="font-mono text-[11px] text-[var(--text-secondary)]" id="k-nodes">--</div>
@@ -167,9 +164,9 @@ tailwind.config = { theme: { extend: {
       <option value="type">Group: by span type</option>
     </select>
     <div class="flex items-center gap-1.5 ml-1" role="group" aria-label="Toggle significance classes">
-      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-[var(--ink-semantic)] text-[var(--ink-semantic)]" data-sig="semantic" aria-pressed="true">~ semantic</button>
-      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-dashed border-[var(--ink-uncertain)] text-[var(--ink-uncertain)]" data-sig="uncertain" aria-pressed="true">? uncertain</button>
-      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-[var(--ink-noise)] text-[var(--ink-noise)]" data-sig="noise" aria-pressed="true">≈ noise</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-[rgb(var(--ink-semantic))] text-[rgb(var(--ink-semantic))]" data-sig="semantic" aria-pressed="true">~ semantic</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-dashed border-[rgb(var(--ink-uncertain))] text-[rgb(var(--ink-uncertain))]" data-sig="uncertain" aria-pressed="true">? uncertain</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-[rgb(var(--ink-noise))] text-[rgb(var(--ink-noise))]" data-sig="noise" aria-pressed="true">≈ noise</button>
     </div>
     <div class="flex items-center gap-1.5 ml-1" role="group" aria-label="Expand or collapse all tree regions">
       <button id="expand-all-btn" class="font-mono text-[11px] px-3 py-1.5 rounded-md border border-edge text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors" data-tip="Open every collapsed region">Expand all</button>
@@ -186,11 +183,11 @@ tailwind.config = { theme: { extend: {
         <span>Unified diff tree</span>
         <span class="ml-auto flex items-center gap-3 normal-case tracking-normal">
           <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[var(--text-muted)] inline-block"></span>unchanged</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[var(--ink-noise)] inline-block"></span>noise</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[var(--ink-added)] inline-block"></span>added</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-[var(--ink-removed)] inline-block"></span>removed</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[var(--ink-semantic)] inline-block"></span>semantic</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-dashed border-[var(--ink-uncertain)] inline-block"></span>uncertain</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[rgb(var(--ink-noise))] inline-block"></span>noise</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[rgb(var(--ink-added))] inline-block"></span>added</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-[rgb(var(--ink-removed))] inline-block"></span>removed</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[rgb(var(--ink-semantic))] inline-block"></span>semantic</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-dashed border-[rgb(var(--ink-uncertain))] inline-block"></span>uncertain</span>
         </span>
       </div>
       <div id="tree" class="p-2 font-mono text-xs max-h-[640px] overflow-auto"></div>
@@ -209,8 +206,8 @@ tailwind.config = { theme: { extend: {
   </footer>
 
   <div id="toast-wrap" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[var(--z-toast)]">
-    <div class="flex items-start gap-2 bg-surface2 border border-[var(--status-error)] rounded-lg px-4 py-3 max-w-lg shadow-2xl">
-      <i data-lucide="triangle-alert" class="w-4 h-4 text-[var(--status-error)] mt-0.5 shrink-0"></i>
+    <div class="flex items-start gap-2 bg-surface2 border border-[rgb(var(--status-error))] rounded-lg px-4 py-3 max-w-lg shadow-2xl">
+      <i data-lucide="triangle-alert" class="w-4 h-4 text-[rgb(var(--status-error))] mt-0.5 shrink-0"></i>
       <div class="font-mono text-[11px] text-[var(--text-primary)] whitespace-pre-wrap break-words" id="toast-text"></div>
     </div>
   </div>
