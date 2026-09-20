@@ -356,19 +356,19 @@ flowchart TD
     T_JOBS[("DynamoDB: JobsTable<br/>Status, KPIs & Metadata")]
   end
 
-  subgraph Engine["3. Core Algorithmic & Indexing Engine"]
+  subgraph DistributedCloud["3. AWS Serverless Execution Engine"]
+    SFN["AWS Step Functions<br/>(DiffStateMachine Pipeline)"]
+    MAP_DIFF["Distributed Map State<br/>(Concurrency: 10 Workers)"]
+    WORKER["DiffWorker Lambdas<br/>(3008 MB RAM each)"]
+    FINOPS["FinOps Cost Engine<br/>(AWS US-East-1 List Pricing)"]
+  end
+
+  subgraph Engine["4. Core Merkle Diff & Rule Classification Engine"]
     RULES["Pluggable Normalization<br/>(Timestamp, UUID, Tolerance)"]
     T1_MERKLE["Tier 1: Subtree Merkle Index<br/>(rawHash & normalizedHash)"]
     DIFF_WALK["Iterative DFS Diff Walk<br/>(Explicit Call Stack)"]
     T2_SIBLING["Tier 2: Sibling Bucket Index<br/>(O(k) Hash & Label Buckets)"]
     CLASSIFY["Classification Engine<br/>(Semantic, Noise, Uncertain)"]
-  end
-
-  subgraph DistributedCloud["4. AWS Serverless Execution Engine"]
-    SFN["AWS Step Functions<br/>(DiffStateMachine Pipeline)"]
-    MAP_DIFF["Distributed Map State<br/>(Concurrency: 10 Workers)"]
-    WORKER["DiffWorker Lambdas<br/>(3008 MB RAM each)"]
-    FINOPS["FinOps Cost Engine<br/>(AWS US-East-1 List Pricing)"]
   end
 
   subgraph PersistenceDelivery["5. Persistence & Delivery Tier"]
@@ -381,15 +381,18 @@ flowchart TD
   CLI --> PARSERS --> RULES --> T1_MERKLE --> DIFF_WALK --> T2_SIBLING --> CLASSIFY
   CLASSIFY --> OUT_TERM & OUT_JSON & OUT_HTML
 
-  UI & CLI -->|"Presigned PUT"| S3
-  UI & CLI -->|"Submit Job"| APIGW --> T_JOBS
-  APIGW --> SFN --> MAP_DIFF --> WORKER
+  UI & CLI -->|"1. Presigned PUT"| S3
+  UI & CLI -->|"2. Submit Job"| APIGW --> T_JOBS
+  APIGW -->|"3. Trigger Execution"| SFN --> MAP_DIFF --> WORKER
   WORKER --> RULES
-  WORKER -->|"Batch write diffs"| T_RES
-  MAP_DIFF --> FINOPS -->|"Write COMPLETED"| T_JOBS
-  UI -->|"Query status & KPIs"| APIGW --> T_JOBS
-  UI -->|"Paginated cursor query"| APIGW --> T_RES
+  CLASSIFY -->|"4. Batch write diffs"| T_RES
+  MAP_DIFF --> FINOPS -->|"5. Status: COMPLETED"| T_JOBS
+  UI -->|"6. Query status & KPIs"| APIGW --> T_JOBS
+  UI -->|"7. Paginated cursor query"| APIGW --> T_RES
 ```
+
+> **The 30-Second Architecture Script**:  
+> *"Under the hood: a Merkle tree per trace, built and diffed in AWS Lambda, chunked across Step Functions Map state for traces too large for a single invocation. Traces in S3 via presigned upload, results in DynamoDB, one API Gateway endpoint in front. Every remaining diff runs through the pluggable rule system and comes back classified — semantic, noise, or uncertain. Not just 'different.'"*
 
 ---
 
