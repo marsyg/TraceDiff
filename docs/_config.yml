@@ -1,0 +1,3 @@
+title: TraceDiff — Structural Trace Diffing
+description: Merkle-indexed divergence localization for execution traces. Performance notes, hash experiments, and the engineering log.
+theme: jekyll-theme-cayman
