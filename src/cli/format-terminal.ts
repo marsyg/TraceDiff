@@ -1,10 +1,12 @@
 import type { DiffResult, DiffSummary } from "../core/type.js";
+import type { FinOpsDiffResult } from "../finops/costEngine.js";
 
 export interface TerminalFormatOptions {
   fileA: string;
   fileB: string;
   activeRules?: string[];
   stats?: boolean;
+  finops?: FinOpsDiffResult;
   includeNoise?: boolean;
   noColor?: boolean;
 }
@@ -125,6 +127,72 @@ export function formatTerminal(summary: DiffSummary, options: TerminalFormatOpti
     lines.push(`  Total:             ${c.bold}${summary.timing.totalMs.toFixed(1)} ms${c.reset}\n`);
   }
 
+  // ── FinOps Cost Impact ───────────────────────────────────────────────────
+  if (options.finops) {
+    const f = options.finops;
+    const deltaSign = f.deltaUsd > 0 ? "+" : "";
+    const pctSign = f.percentageChange > 0 ? "+" : "";
+    const deltaColor = f.deltaUsd > 0 ? c.red : f.deltaUsd < 0 ? c.green : c.gray;
+    const pctColor = f.percentageChange > 0 ? c.red : f.percentageChange < 0 ? c.green : c.gray;
+
+    lines.push(`${c.bold}━━━ FinOps Cost Impact ━━━━━━━━━━━━━━━━━━━━━━━━${c.reset}\n`);
+    lines.push(`  Baseline trace:    ${c.bold}$${f.baselineCostUsd.toFixed(6)}${c.reset} / req`);
+    lines.push(
+      `  Target trace:      ${c.bold}$${f.targetCostUsd.toFixed(6)}${c.reset} / req (${pctColor}${pctSign}${f.percentageChange.toFixed(1)}%${c.reset})`,
+    );
+    lines.push(
+      `  Delta per request: ${deltaColor}${c.bold}${deltaSign}$${f.deltaUsd.toFixed(6)}${c.reset}`,
+    );
+    const monthlyStr = `${deltaSign}$${Math.abs(f.projectedMonthlyUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    lines.push(
+      `  Monthly impact:    ${deltaColor}${c.bold}${monthlyStr} / mo${c.reset} ${c.dim}(@ ${f.requestsPerMonth.toLocaleString()} reqs/mo)${c.reset}\n`,
+    );
+
+    lines.push(`  ${c.bold}Category Shift:${c.reset}`);
+    const cat = f.categories.delta;
+    const fmtCat = (val: number) => {
+      const sign = val > 0 ? "+" : val < 0 ? "-" : " ";
+      return `${sign}$${Math.abs(val).toFixed(6)}`;
+    };
+    lines.push(`    Compute:         ${fmtCat(cat.computeUsd)}`);
+    lines.push(`    Database:        ${fmtCat(cat.databaseUsd)}`);
+    lines.push(`    Storage:         ${fmtCat(cat.storageUsd)}`);
+    lines.push(`    LLM / GenAI:     ${fmtCat(cat.llmUsd)}\n`);
+
+    if (f.topCostDrivers.length > 0) {
+      lines.push(`  ${c.bold}Top Cost Drivers:${c.reset}`);
+      for (let i = 0; i < f.topCostDrivers.length; i++) {
+        const d = f.topCostDrivers[i];
+        const driverSign = d.deltaUsd > 0 ? "+" : "";
+        const driverColor = d.deltaUsd > 0 ? c.red : c.green;
+        lines.push(
+          `    ${i + 1}. ${c.bold}${d.nodeId}${c.reset} (${driverColor}${driverSign}$${d.deltaUsd.toFixed(6)}${c.reset})`,
+        );
+        lines.push(`       ${c.dim}Path:   ${d.path}${c.reset}`);
+        lines.push(`       ${c.dim}Reason: ${d.reason}${c.reset}`);
+      }
+      lines.push("");
+    }
+
+    if (f.remediations && f.remediations.length > 0) {
+      lines.push(`  ${c.bold}💡 Prescriptive Fixes & Cost Optimization:${c.reset}`);
+      for (let i = 0; i < f.remediations.length; i++) {
+        const r = f.remediations[i];
+        const monthlySave = `$${r.potentialMonthlySavingsUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        lines.push(
+          `    ${i + 1}. [${c.yellow}${r.patternName}${c.reset}] ${c.bold}${r.affectedSpanId}${c.reset} (${c.green}Save up to ${monthlySave}/mo${c.reset})`,
+        );
+        lines.push(`       ${c.dim}Fix:${c.reset}  ${r.actionableFix}`);
+      }
+      lines.push("");
+    }
+
+    lines.push(
+      `  ${c.dim}Pricing Table: ${f.priceTableVersion} (${f.evalDurationMs.toFixed(1)}ms eval)${c.reset}`,
+    );
+    lines.push(`  ${c.dim}Disclaimer: ${f.disclaimer}${c.reset}\n`);
+  }
+
   // ── Result footer — mirrors the process exit code ────────────────────────
   if (semantic.length > 0) {
     const uncertainSuffix = uncertain.length > 0 ? ` · ${uncertain.length} uncertain` : "";
@@ -138,9 +206,9 @@ export function formatTerminal(summary: DiffSummary, options: TerminalFormatOpti
       `${c.green}${c.bold}✓ Result:${c.reset} no semantic diffs (${uncertain.length} uncertain, ${noise.length} noise) — exit 0`,
     );
   }
-  if (!options.stats && semantic.length > 0) {
+  if (!options.stats && !options.finops && semantic.length > 0) {
     lines.push(
-      `${c.dim}Tip: --stats for timing · --html-out report.html for a shareable report${c.reset}`,
+      `${c.dim}Tip: --stats for timing · --finops for cloud cost impact · --html-out report.html for a report${c.reset}`,
     );
   }
 

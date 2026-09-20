@@ -27,6 +27,8 @@ const KNOWN_FLAGS = [
   "--quiet",
   "--help",
   "--version",
+  "--finops",
+  "--requests-per-month",
 ];
 
 export interface CliArgs {
@@ -49,6 +51,8 @@ export interface CliArgs {
   noColor: boolean;
   help: boolean;
   version: boolean;
+  finops: boolean;
+  requestsPerMonth: number;
 }
 
 export function parseCliArgs(argv: string[]): CliArgs {
@@ -65,6 +69,8 @@ export function parseCliArgs(argv: string[]): CliArgs {
     noColor: false,
     help: false,
     version: false,
+    finops: false,
+    requestsPerMonth: 10_000_000,
   };
 
   const positionals: string[] = [];
@@ -218,13 +224,36 @@ export function parseCliArgs(argv: string[]): CliArgs {
       continue;
     }
 
-    if (arg.startsWith("--export-repro=") || arg === "--export-repro") {
-      const val = arg.startsWith("--export-repro=") ? arg.slice("--export-repro=".length) : argv[++i];
-      if (!val)
-        throw new Error("Missing directory for --export-repro. Example: --export-repro ./repro-out");
-      result.exportReproDir = val;
-      continue;
+
+  if (arg === "--finops") {
+    result.finops = true;
+    continue;
+  }
+
+  if (arg.startsWith("--requests-per-month=") || arg === "--requests-per-month") {
+    const val = arg.startsWith("--requests-per-month=")
+      ? arg.slice("--requests-per-month=".length)
+      : argv[++i];
+    const num = Number.parseInt(val ?? "", 10);
+    if (Number.isNaN(num) || num < 1) {
+      throw new Error(
+        `Invalid requests-per-month: "${val}". Expected a positive integer (default: 10000000).`,
+      );
     }
+    result.requestsPerMonth = num;
+    continue;
+  }
+
+  if (arg.startsWith("--export-repro=") || arg === "--export-repro") {
+    const val = arg.startsWith("--export-repro=")
+      ? arg.slice("--export-repro=".length)
+      : argv[++i];
+    if (!val) {
+      throw new Error("Missing directory for --export-repro. Example: --export-repro ./repro-out");
+    }
+    result.exportReproDir = val;
+    continue;
+  }
 
     if (arg.startsWith("-")) {
       const hint = suggestFlag(arg);
@@ -320,6 +349,8 @@ Compare:
 Output:
   -o, --output <fmt>      terminal | json | html (default: terminal)
   -s, --stats             Show timing + Merkle skip statistics
+      --finops            Compute FinOps cloud cost regression impact
+      --requests-per-month <n> Monthly request volume for FinOps (default: 10M)
       --include-noise     Also show noise-level diffs (hidden by default)
       --html-out <path>   Also write a shareable HTML report to file
       --export-repro <dir> Write repro-diff-N.sh (cURL) and repro-diff-N.test.ts (Vitest) for each semantic diff

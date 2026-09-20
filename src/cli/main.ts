@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
 import { compareTraces } from "../core/compare-traces.js";
 import type { DiffSummary, TraceNode } from "../core/type.js";
+import { diffTraceCosts, type FinOpsDiffResult } from "../finops/costEngine.js";
 import { autoDetect, parseFlatSpans, parseJsonTree, parseOtel } from "../parsers/index.js";
 import { exportReproBundle } from "../repro/generator.js";
 import { buildRuleSet, type RuleSetOptions } from "../rules/registry.js";
@@ -114,6 +115,12 @@ export function run(argv: string[] = process.argv.slice(2)): number {
 
   const activeRules = args.noRules ? [] : (args.rules ?? [...AVAILABLE_RULES]);
 
+  // ── Optional FinOps computation (strictly opt-in) ──────────────────────────
+  let finopsResult: FinOpsDiffResult | undefined;
+  if (args.finops) {
+    finopsResult = diffTraceCosts(traceA, traceB, args.requestsPerMonth);
+  }
+
   // ── Optional HTML file export ──────────────────────────────────────────────
   if (args.htmlOut) {
     try {
@@ -121,6 +128,7 @@ export function run(argv: string[] = process.argv.slice(2)): number {
         fileA: args.fileA,
         fileB: args.fileB,
         activeRules,
+        finops: finopsResult,
       });
       writeFileSync(args.htmlOut, htmlContent, "utf8");
     } catch (err: unknown) {
@@ -154,13 +162,15 @@ export function run(argv: string[] = process.argv.slice(2)): number {
   // ── Render output ──────────────────────────────────────────────────────────
   if (!args.quiet) {
     if (args.output === "json") {
-      process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+      const jsonOutput = finopsResult ? { ...summary, finops: finopsResult } : summary;
+      process.stdout.write(`${JSON.stringify(jsonOutput, null, 2)}\n`);
     } else if (args.output === "html") {
       process.stdout.write(
         `${formatHtml(summary, {
           fileA: args.fileA,
           fileB: args.fileB,
           activeRules,
+          finops: finopsResult,
         })}\n`,
       );
     } else {
@@ -170,6 +180,7 @@ export function run(argv: string[] = process.argv.slice(2)): number {
           fileB: args.fileB,
           activeRules,
           stats: args.stats,
+          finops: finopsResult,
           includeNoise: args.includeNoise,
           noColor: args.noColor,
         })}\n`,
