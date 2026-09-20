@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff — Engineering Log
 ---
 
-[← Open TraceDiff App](../) · [Home](index.md) · [Developers](developers.md) · [Hash experiment](hash-experiment.md) · **Engineering log**
+[← Open TraceDiff App](../) · [Home](index.html) · [Developers](developers.html) · [Hash experiment](hash-experiment.html) · **Engineering log**
 
 # Engineering log: difficulties, tradeoffs, bugs
 
@@ -42,4 +42,25 @@ Blunt post-mortem style. Every entry: symptom → root cause → fix → lock-in
 | submit-job 202 → 500 with deployment `.env` | Bun auto-loads `.env`; truthy ARN entered live SFN branch with unstubbed client | Stub `sfnClient.send` in test | Full suite green with `.env` present |
 
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>mermaid.initialize({ startOnLoad: true, theme: "dark" });</script>
+<script>
+  (function() {
+    function renderMermaid() {
+      if (typeof mermaid === "undefined") return;
+      var blocks = document.querySelectorAll("pre code.language-mermaid, div.language-mermaid pre code, pre.language-mermaid, code.language-mermaid");
+      blocks.forEach(function(code) {
+        var container = code.closest(".language-mermaid") || code.closest("pre") || code;
+        var div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = code.textContent.trim();
+        container.parentNode.replaceChild(div, container);
+      });
+      mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+      mermaid.run();
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", renderMermaid);
+    } else {
+      renderMermaid();
+    }
+  })();
+</script>

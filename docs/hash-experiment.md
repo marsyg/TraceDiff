@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff — The xxhash Experiment
 ---
 
-[← Open TraceDiff App](../) · [Home](index.md) · [Developers](developers.md) · **Hash experiment** · [Engineering log](engineering-log.md)
+[← Open TraceDiff App](../) · [Home](index.html) · [Developers](developers.html) · **Hash experiment** · [Engineering log](engineering-log.html)
 
 # The xxhash experiment: validated, measured, reverted
 
@@ -15,14 +15,14 @@ SHA-256 was ~18% of Merkle build time. xxHash64 is famously ~10× faster than SH
 
 ```mermaid
 flowchart TD
-  Idea[Replace SHA-256 with xxh64] --> Impl[Vendored pure-TS xxh64<br/>no dependencies]
-  Impl --> Validate[Validation ladder]
-  Validate --> V1[Canonical vectors]
-  Validate --> V2[Streaming splits]
-  Validate --> V3[Avalanche]
-  Validate --> V4[Cross-check vs C impl]
-  V4 --> Measure[Benchmark vs native SHA-256]
-  Measure --> Verdict[Revert: 6x slower]
+  Idea["Replace SHA-256 with xxh64"] --> Impl["Vendored pure-TS xxh64<br/>no dependencies"]
+  Impl --> Validate["Validation ladder"]
+  Validate --> V1["Canonical vectors"]
+  Validate --> V2["Streaming splits"]
+  Validate --> V3["Avalanche"]
+  Validate --> V4["Cross-check vs C impl"]
+  V4 --> Measure["Benchmark vs native SHA-256"]
+  Measure --> Verdict["Revert: 6x slower"]
 ```
 
 ## 2. Validation ladder (all passed — then kept passing for the wrong reason)
@@ -50,4 +50,25 @@ Interpreted 64-bit limb arithmetic cannot beat `node:crypto` C code on short inp
 `xxhash-wasm@1.1.0` in temp space only (repo untouched): ~3× faster than SHA-256 one-shot (~8 ms vs ~25 ms) — but its *streaming* API is slower than SHA-256 streaming (WASM boundary-crossing cost per tiny update dominates). The win needs a concat-in-JS + single-call pattern per node: estimated ~20% total-bench gain in exchange for the repo's first runtime dependency, digest migration, and cache invalidation. Not worth it today; the integration shape is recorded here for the day a latency SLO demands it.
 
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>mermaid.initialize({ startOnLoad: true, theme: "dark" });</script>
+<script>
+  (function() {
+    function renderMermaid() {
+      if (typeof mermaid === "undefined") return;
+      var blocks = document.querySelectorAll("pre code.language-mermaid, div.language-mermaid pre code, pre.language-mermaid, code.language-mermaid");
+      blocks.forEach(function(code) {
+        var container = code.closest(".language-mermaid") || code.closest("pre") || code;
+        var div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = code.textContent.trim();
+        container.parentNode.replaceChild(div, container);
+      });
+      mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+      mermaid.run();
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", renderMermaid);
+    } else {
+      renderMermaid();
+    }
+  })();
+</script>

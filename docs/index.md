@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff — Structural Trace Diffing
 ---
 
-[← Open TraceDiff App](../) · **Docs Home** · [Developers](developers.md) · [Hash experiment](hash-experiment.md) · [Engineering log](engineering-log.md)
+[← Open TraceDiff App](../) · **Docs Home** · [Developers](developers.html) · [Hash experiment](hash-experiment.html) · [Engineering log](engineering-log.html)
 
 # TraceDiff — find the 3 real diffs, skip the other 999,997 events
 
@@ -13,13 +13,13 @@ The trick: fingerprint every subtree with a hash. Identical fingerprints mean id
 
 ```mermaid
 flowchart LR
-  A[Trace A] --> H1[hash every subtree]
-  B[Trace B] --> H2[hash every subtree]
-  H1 --> C{Same hash?}
+  A["Trace A"] --> H1["hash every subtree"]
+  B["Trace B"] --> H2["hash every subtree"]
+  H1 --> C{"Same hash?"}
   H2 --> C
-  C -->|Yes, 99.9 percent| Skip[Skip in O(1)]
-  C -->|No, 0.1 percent| Recurse[Recurse, find the diff]
-  Skip --> Win[100x faster than full compare]
+  C -->|"Yes, 99.9%"| Skip["Skip in O(1)"]
+  C -->|"No, 0.1%"| Recurse["Recurse, find the diff"]
+  Skip --> Win["100x faster than full compare"]
   Recurse --> Win
 ```
 
@@ -40,9 +40,30 @@ flowchart LR
 
 ## Read deeper
 
-- [Developers](developers.md) — cost model, hot-spot map, what changed and why
-- [Hash experiment](hash-experiment.md) — the xxhash saga: validation, bugs caught, measured verdict
-- [Engineering log](engineering-log.md) — difficulties, tradeoffs, full bugs register
+- [Developers](developers.html) — cost model, hot-spot map, what changed and why
+- [Hash experiment](hash-experiment.html) — the xxhash saga: validation, bugs caught, measured verdict
+- [Engineering log](engineering-log.html) — difficulties, tradeoffs, full bugs register
 
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>mermaid.initialize({ startOnLoad: true, theme: "dark" });</script>
+<script>
+  (function() {
+    function renderMermaid() {
+      if (typeof mermaid === "undefined") return;
+      var blocks = document.querySelectorAll("pre code.language-mermaid, div.language-mermaid pre code, pre.language-mermaid, code.language-mermaid");
+      blocks.forEach(function(code) {
+        var container = code.closest(".language-mermaid") || code.closest("pre") || code;
+        var div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = code.textContent.trim();
+        container.parentNode.replaceChild(div, container);
+      });
+      mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+      mermaid.run();
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", renderMermaid);
+    } else {
+      renderMermaid();
+    }
+  })();
+</script>

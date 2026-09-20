@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff Developers — Performance Notes
 ---
 
-[← Open TraceDiff App](../) · [Home](index.md) · **Developers** · [Hash experiment](hash-experiment.md) · [Engineering log](engineering-log.md)
+[← Open TraceDiff App](../) · [Home](index.html) · **Developers** · [Hash experiment](hash-experiment.html) · [Engineering log](engineering-log.html)
 
 # Performance notes for contributors
 
@@ -11,14 +11,14 @@ title: TraceDiff Developers — Performance Notes
 
 ```mermaid
 flowchart TD
-  N[Per trace node] --> R[Normalize attributes<br/>5 rule passes + spreads]
-  R --> S[Serialize twice<br/>normalized + raw content]
-  S --> H[Hash twice<br/>SHA-256 normalized + raw]
-  H --> T[Traversal + allocs<br/>recursion, sorts, size sums]
-  R -->|measured| R1[~16 percent]
-  S -->|measured| S1[~32 percent]
-  H -->|measured| H1[~18 percent]
-  T -->|measured| T1[~32 percent]
+  N["Per trace node"] --> R["Normalize attributes<br/>5 rule passes + spreads"]
+  R --> S["Serialize twice<br/>normalized + raw content"]
+  S --> H["Hash twice<br/>SHA-256 normalized + raw"]
+  H --> T["Traversal + allocs<br/>recursion, sorts, size sums"]
+  R -->|measured| R1["~16%"]
+  S -->|measured| S1["~32%"]
+  H -->|measured| H1["~18%"]
+  T -->|measured| T1["~32%"]
 ```
 
 One sentence frames every decision below: **the build is O(N) and unavoidable — all wins come from doing less per node.** The diff walk was already fast; the build was 96% of total time.
@@ -48,11 +48,32 @@ No change landed without three proofs: (a) `bun test` green with recall exact on
 
 - **Bucket math** (`numeric-tolerance`): widening buckets would cut boundary straddles but silently merge real 5–10% regressions. The no-false-merge guarantee (same bucket implies within tolerance) is load-bearing.
 - **Dual-hash architecture** (`normalizedHash`/`rawHash`): collapsing it destroys the identical-vs-noise distinction the UI paints green vs yellow.
-- **SHA-256 default**: see the [hash experiment](hash-experiment.md) for the full story.
+- **SHA-256 default**: see the [hash experiment](hash-experiment.html) for the full story.
 
 ## 6. Remaining ceiling
 
-After Phase 1 the floor is serialize + native-hash (~2.2 s of 2.3 s at 100K). Further gains need data-model surgery or the WASM tradeoffs documented in the [hash experiment](hash-experiment.md).
+After Phase 1 the floor is serialize + native-hash (~2.2 s of 2.3 s at 100K). Further gains need data-model surgery or the WASM tradeoffs documented in the [hash experiment](hash-experiment.html).
 
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-<script>mermaid.initialize({ startOnLoad: true, theme: "dark" });</script>
+<script>
+  (function() {
+    function renderMermaid() {
+      if (typeof mermaid === "undefined") return;
+      var blocks = document.querySelectorAll("pre code.language-mermaid, div.language-mermaid pre code, pre.language-mermaid, code.language-mermaid");
+      blocks.forEach(function(code) {
+        var container = code.closest(".language-mermaid") || code.closest("pre") || code;
+        var div = document.createElement("div");
+        div.className = "mermaid";
+        div.textContent = code.textContent.trim();
+        container.parentNode.replaceChild(div, container);
+      });
+      mermaid.initialize({ startOnLoad: false, theme: "dark", securityLevel: "loose" });
+      mermaid.run();
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", renderMermaid);
+    } else {
+      renderMermaid();
+    }
+  })();
+</script>
