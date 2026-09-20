@@ -336,16 +336,16 @@ Now the actual algorithm. Start at the roots. Compare fingerprints. If they matc
 
 ```mermaid
 flowchart TD
-  Start([Compare root A vs root B]) --> HashCheck{Fingerprints<br/>match?}
+  Start(["Compare root A vs root B"]) --> HashCheck{"Fingerprints<br/>match?"}
   HashCheck -->|Yes| Skip["Skip entire subtree<br/>nodesSkipped += size - 1"]
   HashCheck -->|No| Children["Match children by<br/>fingerprint, then signature"]
   Children --> Pairs["For each matched pair:<br/>push onto stack"]
-  Children --> Rem["Unmatched in A → 'removed'"]
-  Children --> Add["Unmatched in B → 'added'"]
-  Pairs --> Recurse{Stack<br/>empty?}
+  Children --> Rem["Unmatched in A → removed"]
+  Children --> Add["Unmatched in B → added"]
+  Pairs --> Recurse{"Stack<br/>empty?"}
   Recurse -->|No| Pop["Pop next pair"]
   Pop --> HashCheck
-  Recurse -->|Yes| Done([Done])
+  Recurse -->|Yes| Done(["Done"])
 
   classDef skip fill:#3fb950,stroke:#2d8a3e,color:#fff
   classDef diff fill:#f85149,stroke:#c0392b,color:#fff
@@ -812,23 +812,23 @@ TraceDiff's subtitle is *"Merkle-indexed divergence localization"*. The entire p
 
 ```mermaid
 flowchart TD
-  subgraph Tier1["Tier 1: Subtree Merkle Index (Cryptographic Hash Index)"]
-    M_HASH["Dual 256-Bit Digests<br/>• normalizedHash: semantic equivalence index<br/>• rawHash: literal byte equivalence index"]
-    M_ACTION["Action: Root/subtree O(1) equality check.<br/>If hashes match, skip entire subtree without traversal."]
+  subgraph Tier1["Tier 1 - Subtree Merkle Index - Cryptographic Hash Index"]
+    M_HASH["Dual 256-Bit Digests<br/>• normalizedHash - semantic equivalence index<br/>• rawHash - literal byte equivalence index"]
+    M_ACTION["Action: Root and subtree O1 equality check<br/>If hashes match, skip entire subtree without traversal"]
   end
 
-  subgraph Tier2["Tier 2: Sibling Bucket Index (Linear Alignment Index)"]
-    S_MAP["In-Memory Hash Buckets (match-children.ts)<br/>• Map(normalizedHash, MerkleNode[]) for O(1) exact alignment<br/>• Map(label, MerkleNode[]) for heuristic structural pairing"]
-    S_ACTION["Action: Avoids O(k²) quadratic sibling matching.<br/>Aligns thousands of concurrent async spans in O(k) linear time."]
+  subgraph Tier2["Tier 2 - Sibling Bucket Index - Linear Alignment Index"]
+    S_MAP["In-Memory Hash Buckets - match-children.ts<br/>• Map by normalizedHash for O1 exact alignment<br/>• Map by label for heuristic structural pairing"]
+    S_ACTION["Action: Avoids quadratic sibling matching<br/>Aligns thousands of concurrent async spans in linear time"]
   end
 
-  subgraph Tier3["Tier 3: DynamoDB Composite Range Index (Sparse Result Stream)"]
-    D_KEY["Composite Primary Key<br/>• Partition Key: jobId (UUID)<br/>• Sort Key: diffIndex (Sequential 0, 1, 2, ... N)"]
-    D_ACTION["Action: Fast cursor pagination for millions of events.<br/>The frontend fetches 50 diffs at a time via indexed range queries."]
+  subgraph Tier3["Tier 3 - DynamoDB Composite Range Index - Sparse Result Stream"]
+    D_KEY["Composite Primary Key<br/>• Partition Key: jobId - UUID<br/>• Sort Key: diffIndex - Sequential 0, 1, 2 to N"]
+    D_ACTION["Action: Fast cursor pagination for millions of events<br/>Frontend fetches 50 diffs at a time via indexed range queries"]
   end
 
-  Tier1 -->|"Divergence detected (hashes differ)"| Tier2
-  Tier2 -->|"Identifies mutated/added/removed nodes"| Tier3
+  Tier1 -->|"Divergence detected - hashes differ"| Tier2
+  Tier2 -->|"Identifies mutated, added, or removed nodes"| Tier3
 
   classDef tier fill:#161b22,stroke:#58a6ff,color:#e6edf3
   class Tier1,Tier2,Tier3 tier
