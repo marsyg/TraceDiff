@@ -15,7 +15,9 @@
     "format:check": "biome format --no-errors-on-unmatched ./src ./test",
     "check": "biome check --no-errors-on-unmatched ./src ./test",
     "typecheck": "tsc --noEmit",
-    "hooks:install": "bun run scripts/install-hooks.ts"
+    "hooks:install": "bun run scripts/install-hooks.ts",
+    "deploy": "bash infra/deploy.sh",
+    "deploy:frontend": "aws s3 sync frontend/ s3://tracediff-web-140023404870-dev/ --delete && aws cloudfront create-invalidation --distribution-id E1574K2273MQ8K --paths \"/*\""
   },
   "keywords": [
     "trace",

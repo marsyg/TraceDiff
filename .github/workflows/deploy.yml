@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - Lavanya
+      - frontend-redesign
   workflow_dispatch:
 
 permissions:

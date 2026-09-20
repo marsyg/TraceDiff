@@ -33,4 +33,7 @@ bun.lockb
 # Logs
 *.log
 
+# Backup / local dirs
+frontend-1/
+
 .env
