@@ -21,6 +21,7 @@ const KNOWN_FLAGS = [
   "--stats",
   "--html-out",
   "--include-noise",
+  "--export-repro",
   "--list-rules",
   "--no-color",
   "--quiet",
@@ -42,6 +43,8 @@ export interface CliArgs {
   maxDepth: number;
   stats: boolean;
   htmlOut?: string;
+  /** Output directory for --export-repro. When set, write repro-diff-N.sh and repro-diff-N.test.ts files. */
+  exportReproDir?: string;
   quiet: boolean;
   includeNoise: boolean;
   listRules: boolean;
@@ -221,24 +224,36 @@ export function parseCliArgs(argv: string[]): CliArgs {
       continue;
     }
 
-    if (arg === "--finops") {
-      result.finops = true;
-      continue;
-    }
 
-    if (arg.startsWith("--requests-per-month=") || arg === "--requests-per-month") {
-      const val = arg.startsWith("--requests-per-month=")
-        ? arg.slice("--requests-per-month=".length)
-        : argv[++i];
-      const num = Number.parseInt(val ?? "", 10);
-      if (Number.isNaN(num) || num < 1) {
-        throw new Error(
-          `Invalid requests-per-month: "${val}". Expected a positive integer (default: 10000000).`,
-        );
-      }
-      result.requestsPerMonth = num;
-      continue;
+  if (arg === "--finops") {
+    result.finops = true;
+    continue;
+  }
+
+  if (arg.startsWith("--requests-per-month=") || arg === "--requests-per-month") {
+    const val = arg.startsWith("--requests-per-month=")
+      ? arg.slice("--requests-per-month=".length)
+      : argv[++i];
+    const num = Number.parseInt(val ?? "", 10);
+    if (Number.isNaN(num) || num < 1) {
+      throw new Error(
+        `Invalid requests-per-month: "${val}". Expected a positive integer (default: 10000000).`,
+      );
     }
+    result.requestsPerMonth = num;
+    continue;
+  }
+
+  if (arg.startsWith("--export-repro=") || arg === "--export-repro") {
+    const val = arg.startsWith("--export-repro=")
+      ? arg.slice("--export-repro=".length)
+      : argv[++i];
+    if (!val) {
+      throw new Error("Missing directory for --export-repro. Example: --export-repro ./repro-out");
+    }
+    result.exportReproDir = val;
+    continue;
+  }
 
     if (arg.startsWith("-")) {
       const hint = suggestFlag(arg);
@@ -338,6 +353,7 @@ Output:
       --requests-per-month <n> Monthly request volume for FinOps (default: 10M)
       --include-noise     Also show noise-level diffs (hidden by default)
       --html-out <path>   Also write a shareable HTML report to file
+      --export-repro <dir> Write repro-diff-N.sh (cURL) and repro-diff-N.test.ts (Vitest) for each semantic diff
   -q, --quiet             Print nothing, exit code only
       --no-color          Disable ANSI colors (also respects NO_COLOR=1)
 

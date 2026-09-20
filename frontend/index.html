@@ -52,7 +52,6 @@ tailwind.config = { theme: { extend: {
   .tnode-row { transition: background .15s ease; }
   .tnode-row:hover { background: #18181b; }
   .tnode-row.selected { background: #1c1917; box-shadow: inset 2px 0 0 #fb923c; }
-  .tnode-row.hidden-row { display: none; }
   .collapsed-row { border: 1px dashed #3f3f46; }
   .collapsed-row:hover { border-color: #71717a; background: #18181b; }
   .uncertain-outline { border: 1px dashed #a855f7 !important; }
@@ -865,9 +864,14 @@ el("group-select").addEventListener("change", function () {
 });
 
 // Row model for one tree node: state, own diffs, collapsed-children summary.
-function rowState(own, hasSemBelow, hasNoiseBelow) {
-  if (own.length) {
-    var first = own[0];
+// NOTE: ownIdxs holds result INDICES (diffByPath stores indices, not
+// objects) — resolve before reading .type/.significance. Reading fields
+// off the raw index silently yields undefined and every row degrades to
+// "semantic", which is exactly the bug this guard documents.
+function rowState(ownIdxs, hasSemBelow, hasNoiseBelow) {
+  if (ownIdxs.length) {
+    var first = state.results[ownIdxs[0]];
+    if (!first) return "semantic";
     if (first.type === "added") return "added";
     if (first.type === "removed") return "removed";
     if (first.significance === "uncertain") return "uncertain";
@@ -879,12 +883,18 @@ function rowState(own, hasSemBelow, hasNoiseBelow) {
   return "unchanged";
 }
 
-function annotate(node, trail) {
-  var key = trail.join("");
+function annotate(node, trail, ukey, counter) {
+  var key = trail.join("");
   var own = state.diffByPath[key] || [];
+  // Duplicate labels under one parent (e.g. 10 identical log lines) share
+  // a path key. Give each instance its own diff (FIFO, mirroring how the
+  // backend matcher pairs duplicates) and its own UI key, so rows don't
+  // share collapse/selection state or all show the same diff list.
+  var inst = counter[key] || 0;
+  counter[key] = inst + 1;
   var hasSem = false, hasNoise = false, kids = [], total = 1;
-  node.children.forEach(function (c) {
-    var info = annotate(c, trail.concat([c.label]));
+  node.children.forEach(function (c, ci) {
+    var info = annotate(c, trail.concat([c.label]), ukey + "/" + ci, counter);
     kids.push(info); total += info.total;
     if (info.hasSem) hasSem = true;
     if (info.hasNoise) hasNoise = true;
@@ -894,7 +904,7 @@ function annotate(node, trail) {
     if (s === "semantic" || s === "uncertain") hasSem = true; else hasNoise = true;
   });
   state.nodeIndex[key] = { node: node, own: own };
-  return { node: node, key: key, own: own, kids: kids, hasSem: hasSem, hasNoise: hasNoise, total: total };
+  return { node: node, key: key, ukey: ukey, inst: inst, own: own, kids: kids, hasSem: hasSem, hasNoise: hasNoise, total: total };
 }
 
 function stateDot(st) {
@@ -930,7 +940,7 @@ function renderTree() {
     host.innerHTML = '<div class="p-8 text-center font-mono text-xs text-zinc-600">Run a diff to visualize the unified tree.</div>';
     return;
   }
-  var info = annotate(state.treeB, [state.treeB.label]);
+  var info = annotate(state.treeB, [state.treeB.label], "0", {});
   // Inline removed nodes under their parent anchor in B. When the anchor
   // path doesn't exist in B (e.g. differing root labels), fall back to the
   // root — a removed span with no B-side home still deserves a row, with
@@ -971,19 +981,22 @@ function renderTree() {
   }
 
   function emit(ni, depth) {
-    var st = rowState(ni.own, ni.hasSem, ni.hasNoise);
+    // This instance's own diff (see annotate): all duplicates share the
+    // path list, but each row shows exactly one diff.
+    var dispOwn = ni.own.length ? [ni.own[ni.inst % ni.own.length]] : [];
+    var st = rowState(dispOwn, ni.hasSem, ni.hasNoise);
     // Significance filter: hide the class entirely (except structural anchors).
     if ((st === "noise" || st === "below-noise") && !state.showSig.noise) { hiddenByFilter++; return; }
     if ((st === "uncertain") && !state.showSig.uncertain) { hiddenByFilter++; return; }
     if (st !== "unchanged" && st !== "below-sem" && st !== "below-noise") {
-      var vis = sigOf(state.results[ni.own[0]]);
+      var vis = sigOf(state.results[dispOwn[0]]);
       if (!state.showSig[vis]) { hiddenByFilter++; return; }
     }
     if (!subtreeMatches(ni, depth === 0)) { hiddenByFilter++; return; }
     visible++;
 
     var isCollapsedRegion = (st === "unchanged" || st === "noise") && ni.total > 1;
-    var userOpen = state.collapsed[ni.key];
+    var userOpen = state.collapsed[ni.ukey];
     // Defaults per spec: unchanged + noise collapse; everything else expands.
     var open = userOpen === undefined ? !(st === "unchanged" || st === "noise") : userOpen;
 
@@ -991,13 +1004,13 @@ function renderTree() {
       var label = st === "noise"
         ? "≈ " + (ni.total - 1) + " noise-only spans — judged safe, click to expand"
         : "⌄ " + (ni.total - 1) + " unchanged spans — Merkle-skipped, click to expand";
-      html += '<div class="tnode-row collapsed-row flex items-center gap-2 rounded cursor-pointer px-3 py-1.5 my-0.5 font-mono text-[11px] text-zinc-500" data-key="' + esc(ni.key) + '" data-act="toggle" style="margin-left:' + (6 + depth * 14) + 'px">'
+      html += '<div class="tnode-row collapsed-row flex items-center gap-2 rounded cursor-pointer px-3 py-1.5 my-0.5 font-mono text-[11px] text-zinc-500" data-key="' + esc(ni.ukey) + '" data-act="toggle" style="margin-left:' + (6 + depth * 14) + 'px">'
         + esc(label) + "</div>";
       return;
     }
 
-    var ownIdx = ni.own.length ? ni.own[0] : -1;
-    var sel = ni.own.indexOf(state.selected) >= 0 ? " selected" : "";
+    var ownIdx = dispOwn.length ? dispOwn[0] : -1;
+    var sel = dispOwn.indexOf(state.selected) >= 0 ? " selected" : "";
     var dot = stateDot(st);
     var pill = "";
     if (st === "added") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-emerald-500/15 border border-emerald-500 text-emerald-400">ADDED</span>';
@@ -1005,12 +1018,12 @@ function renderTree() {
     else if (st === "semantic") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-orange-500/15 border border-orange-500 text-orange-400">SEMANTIC</span>';
     else if (st === "uncertain") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-purple-500/10 border border-dashed border-purple-400 text-purple-300">UNCERTAIN</span>';
     else if (st === "noise") pill = '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-amber-700 text-amber-500">NOISE</span>';
-    var sizeBadge = ni.total > 1 && ni.own.length
+    var sizeBadge = ni.total > 1 && dispOwn.length
       ? '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-edge text-zinc-500">covers ' + ni.total + " nodes</span>"
       : "";
     var dur = ni.node.attributes && ni.node.attributes.duration_ms != null ? esc(ni.node.attributes.duration_ms) + "ms" : "";
     var extra = st === "uncertain" ? " uncertain-outline" : "";
-    html += '<div class="tnode-row flex items-center gap-2 pr-2 rounded cursor-pointer' + sel + extra + '" data-key="' + esc(ni.key) + '" data-diff="' + ownIdx + '" style="padding-left:' + (6 + depth * 14) + 'px">'
+    html += '<div class="tnode-row flex items-center gap-2 pr-2 rounded cursor-pointer' + sel + extra + '" data-key="' + esc(ni.ukey) + '" data-diff="' + ownIdx + '" style="padding-left:' + (6 + depth * 14) + 'px">'
       + '<span class="w-2 h-2 rounded-full shrink-0 ' + dot + '"></span>'
       + '<span class="font-mono text-[11px] font-bold text-zinc-600 w-3 shrink-0">' + stateIcon(st) + "</span>"
       + '<span class="truncate text-zinc-200 font-mono text-xs">' + hl(ni.node.label) + "</span>" + pill + sizeBadge
