@@ -34,6 +34,9 @@ jobs:
 
       - name: Assemble Site
         run: |
+          # Reclaim ownership of ./_site from Docker container root user
+          sudo chown -R $USER:$USER ./_site
+          sudo chmod -R u+rwX ./_site
           # Copy frontend app to the root of the site
           cp -r frontend/* ./_site/
 

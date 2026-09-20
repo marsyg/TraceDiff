@@ -18,3 +18,8 @@ exclude:
   - tsconfig.json
   - .env
   - .env.example
+  - frontend
+  - frontend-1
+  - fixtures
+  - scripts
+  - .agents
