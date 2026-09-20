@@ -3,6 +3,8 @@ layout: default
 title: TraceDiff — Structural Trace Diffing
 ---
 
+[← Open TraceDiff App](../) · **Docs Home** · [Developers](developers.md) · [Hash experiment](hash-experiment.md) · [Engineering log](engineering-log.md)
+
 # TraceDiff — find the 3 real diffs, skip the other 999,997 events
 
 Two execution traces go in (function calls, spans, log lines — up to millions of events each). Out comes the answer to one question: **what actually changed?**

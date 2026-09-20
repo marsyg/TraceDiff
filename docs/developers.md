@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff Developers — Performance Notes
 ---
 
-[Home](index.md) · **Developers** · [Hash experiment](hash-experiment.md) · [Engineering log](engineering-log.md)
+[← Open TraceDiff App](../) · [Home](index.md) · **Developers** · [Hash experiment](hash-experiment.md) · [Engineering log](engineering-log.md)
 
 # Performance notes for contributors
 

@@ -1,0 +1,20 @@
+title: TraceDiff — Structural Trace Diffing
+description: Sub-second semantic regression analysis using Merkle Tree pruning and equivalence rules.
+theme: jekyll-theme-primer
+relative_links:
+  enabled: true
+  collections: true
+include:
+  - docs
+exclude:
+  - node_modules
+  - src
+  - test
+  - infra
+  - dist
+  - package.json
+  - bun.lockb
+  - pnpm-lock.yaml
+  - tsconfig.json
+  - .env
+  - .env.example
