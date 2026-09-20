@@ -39,157 +39,30 @@ flowchart LR
 
 ---
 
-<style>
-  html {
-    scroll-behavior: smooth;
-  }
-  @media (min-width: 1200px) {
-    .container-lg, .markdown-body {
-      max-width: 1360px !important;
-      position: relative !important;
-      padding-left: 310px !important;
-      box-sizing: border-box !important;
-    }
-    .arch-sidebar-nav {
-      position: fixed;
-      top: 2rem;
-      left: max(1.5rem, calc((100vw - 1360px) / 2));
-      width: 275px;
-      max-height: calc(100vh - 4rem);
-      overflow-y: auto;
-      overflow-x: hidden;
-      padding: 1.25rem 1rem 1.5rem 1.25rem;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-      z-index: 100;
-      scrollbar-width: thin;
-      scrollbar-color: #30363d transparent;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-    }
-  }
+## Index
 
-  @media (max-width: 1199px) {
-    .arch-sidebar-nav {
-      margin: 1.5rem 0 2rem 0;
-      padding: 1.25rem;
-      background: #161b22;
-      border: 1px solid #30363d;
-      border-radius: 8px;
-    }
-  }
-
-  .arch-sidebar-nav h3 {
-    margin: 0 0 0.75rem 0;
-    font-size: 0.95rem;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: #58a6ff;
-    border-bottom: 1px solid #21262d;
-    padding-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .arch-sidebar-nav .nav-group-title {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #8b949e;
-    margin: 0.9rem 0 0.35rem 0;
-  }
-  .arch-sidebar-nav ul {
-    list-style: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-  }
-  .arch-sidebar-nav li {
-    margin: 0.25rem 0 !important;
-    line-height: 1.35 !important;
-    font-size: 0.83rem !important;
-  }
-  .arch-sidebar-nav a {
-    color: #c9d1d9 !important;
-    text-decoration: none !important;
-    display: block;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    transition: all 0.15s ease-in-out;
-  }
-  .arch-sidebar-nav a:hover,
-  .arch-sidebar-nav a.active {
-    color: #58a6ff !important;
-    background: rgba(56, 139, 253, 0.15) !important;
-    font-weight: 600;
-    padding-left: 0.6rem;
-  }
-  .arch-sidebar-nav .sub-items {
-    padding-left: 0.85rem !important;
-    border-left: 1px solid #21262d;
-    margin-left: 0.4rem !important;
-  }
-  .arch-sidebar-nav .sub-items li {
-    font-size: 0.78rem !important;
-  }
-</style>
-
-<div class="arch-sidebar-nav">
-  <h3>📑 Architecture Index</h3>
-  
-  <div class="nav-group-title">Overview & TL;DR</div>
-  <ul>
-    <li><a href="#tldr--the-30-second-version">⚡ TL;DR (30-Sec Pitch)</a></li>
-  </ul>
-
-  <div class="nav-group-title">Foundations</div>
-  <ul>
-    <li><a href="#1-what-a-trace-actually-is">1. What a trace is</a></li>
-    <li><a href="#2-why-a-naive-diff-is-too-slow">2. Why naive diff is slow</a></li>
-    <li><a href="#3-the-insight-fingerprint-every-subtree">3. Fingerprint subtrees</a></li>
-    <li><a href="#4-one-change-ripples-up">4. One change ripples up</a></li>
-  </ul>
-
-  <div class="nav-group-title">Diff Engine Mechanics</div>
-  <ul>
-    <li><a href="#5-the-diff-walk--top-down-skip-the-matches">5. The diff walk (DFS)</a></li>
-    <li><a href="#6-concrete-walkthrough--a-small-tree">6. Concrete walkthrough</a></li>
-    <li><a href="#7-three-verdicts-per-node">7. Three verdicts per node</a></li>
-    <li><a href="#8-skip-accounting--the-three-buckets">8. Skip accounting math</a></li>
-    <li><a href="#9-why-depth-matters-for-skip-">9. Depth & skip %</a></li>
-    <li><a href="#10-complexity--the-win">10. Asymptotic complexity</a></li>
-  </ul>
-
-  <div class="nav-group-title">Cloud & Pipelines</div>
-  <ul>
-    <li><a href="#11-local-single-process-pipeline">11. Local CLI pipeline</a></li>
-    <li><a href="#12-distributed-cloud-architecture-aws-serverless-engine">12. AWS Cloud Architecture</a>
-      <ul class="sub-items">
-        <li><a href="#121-phase-1-ingestion--direct-storage-lifecycle">12.1 Phase 1: Ingestion</a></li>
-        <li><a href="#122-phase-2-distributed-map-state--query-pipeline">12.2 Phase 2: Map-State</a></li>
-        <li><a href="#123-consolidated-end-to-end-cloud-blueprint">12.3 Consolidated Blueprint</a></li>
-        <li><a href="#124-key-architectural-pillars">12.4 Architectural Pillars</a></li>
-      </ul>
-    </li>
-  </ul>
-
-  <div class="nav-group-title">Indexing Architecture</div>
-  <ul>
-    <li><a href="#13-indexing-architecture--how-tracediff-localizes-divergences-in-o1">13. 3-Tier Indexing</a>
-      <ul class="sub-items">
-        <li><a href="#131-tier-1-subtree-merkle-indexing-cryptographic-hash-index">13.1 Tier 1: Merkle Hash</a></li>
-        <li><a href="#132-tier-2-in-memory-sibling-alignment-indexing-srccorematch-childrents">13.2 Tier 2: Sibling Buckets</a></li>
-        <li><a href="#133-tier-3-cloud-range-indexing-in-dynamodb-resultstable">13.3 Tier 3: DynamoDB Range</a></li>
-      </ul>
-    </li>
-  </ul>
-
-  <div class="nav-group-title">Reference</div>
-  <ul>
-    <li><a href="#cheat-sheet">📖 Cheat sheet</a></li>
-    <li><a href="#one-diagram-to-rule-them-all">🎯 30-Second Judge Diagram</a></li>
-  </ul>
-</div>
+- [§ 1. What a trace actually is](#1-what-a-trace-actually-is)
+- [§ 2. Why a naive diff is too slow](#2-why-a-naive-diff-is-too-slow)
+- [§ 3. The insight: fingerprint every subtree](#3-the-insight-fingerprint-every-subtree)
+- [§ 4. One change ripples up](#4-one-change-ripples-up)
+- [§ 5. The diff walk — top-down, skip the matches](#5-the-diff-walk--top-down-skip-the-matches)
+- [§ 6. Concrete walkthrough — a small tree](#6-concrete-walkthrough--a-small-tree)
+- [§ 7. Three verdicts per node](#7-three-verdicts-per-node)
+- [§ 8. Skip accounting — the three buckets](#8-skip-accounting--the-three-buckets)
+- [§ 9. Why depth matters for skip %](#9-why-depth-matters-for-skip-)
+- [§ 10. Complexity — the win](#10-complexity--the-win)
+- [§ 11. Local single-process pipeline](#11-local-single-process-pipeline)
+- [§ 12. Distributed Cloud Architecture (AWS Serverless Engine)](#12-distributed-cloud-architecture-aws-serverless-engine)
+  - [12.1 Phase 1: Ingestion & Direct Storage Lifecycle](#121-phase-1-ingestion--direct-storage-lifecycle)
+  - [12.2 Phase 2: Distributed Map-State & Query Pipeline](#122-phase-2-distributed-map-state--query-pipeline)
+  - [12.3 Consolidated End-to-End Cloud Blueprint](#123-consolidated-end-to-end-cloud-blueprint)
+  - [12.4 Key Architectural Pillars](#124-key-architectural-pillars)
+- [§ 13. Indexing Architecture — How TraceDiff Localizes Divergences in O(1)](#13-indexing-architecture--how-tracediff-localizes-divergences-in-o1)
+  - [13.1 Tier 1: Subtree Merkle Indexing](#131-tier-1-subtree-merkle-indexing-cryptographic-hash-index)
+  - [13.2 Tier 2: Sibling Alignment Bucket Indexing](#132-tier-2-in-memory-sibling-alignment-indexing-srccorematch-childrents)
+  - [13.3 Tier 3: Cloud Range Indexing in DynamoDB](#133-tier-3-cloud-range-indexing-in-dynamodb-resultstable)
+- [Cheat sheet](#cheat-sheet)
+- [One diagram to rule them all](#one-diagram-to-rule-them-all)
 
 ---
 
@@ -622,7 +495,7 @@ Every stage is **single-pass**. The diff walk is **iterative** (explicit stack �
 
 ## 12. Distributed Cloud Architecture (AWS Serverless Engine)
 
-When traces grow into hundreds of megabytes or production telemetry runs asynchronously, TraceDiff transitions from the local single-process pipeline to an **event-driven AWS serverless architecture** defined in [`infra/template.yaml`](../infra/template.yaml).
+When traces grow into hundreds of megabytes or production telemetry runs asynchronously, TraceDiff transitions from the local single-process pipeline to an **event-driven AWS serverless architecture** defined in [`infra/template.yaml`](https://github.com/marsyg/TraceDiff/blob/main/infra/template.yaml).
 
 To ensure clarity, the cloud architecture is presented in two focused operational phases, with an expandable full-system schematic.
 
@@ -835,11 +708,11 @@ flowchart TD
 ```
 
 ### 13.1 Tier 1: Subtree Merkle Indexing (Cryptographic Hash Index)
-* **Mechanism**: Every node in the execution graph is indexed by a bottom-up cryptographic digest constructed from its canonical serialized attributes and its sorted children's hashes ([`src/core/merkle-tree.ts`](../src/core/merkle-tree.ts)).
+* **Mechanism**: Every node in the execution graph is indexed by a bottom-up cryptographic digest constructed from its canonical serialized attributes and its sorted children's hashes ([`src/core/merkle-tree.ts`](https://github.com/marsyg/TraceDiff/blob/main/src/core/merkle-tree.ts)).
 * **Why It Works**: Instead of performing an exhaustive depth-first search or dynamic programming tree alignment (such as the Zhang-Shasha tree edit distance algorithm which runs in $O(N^2 \cdot m^2)$), the Merkle index inverts the problem: identical branches map to identical index keys.
 * **Result**: An $O(1)$ integer/byte comparison replaces recursive inspection of tens of thousands of descendant nodes.
 
-### 13.2 Tier 2: In-Memory Sibling Alignment Indexing ([`src/core/match-children.ts`](../src/core/match-children.ts))
+### 13.2 Tier 2: In-Memory Sibling Alignment Indexing ([`src/core/match-children.ts`](https://github.com/marsyg/TraceDiff/blob/main/src/core/match-children.ts))
 * **Problem**: When a trace parent has thousands of concurrent sibling tasks (e.g. batch API requests or worker pools), a naive alignment compares every child in Trace A against every child in Trace B ($O(k^2)$ operations).
 * **Two-Pass Hash Bucketing Index**:
   1. **Pass 1 (`byHash` Map Index)**: Indexes children of B into an in-memory hash table `Map<string, MerkleNode[]>` keyed by `normalizedHash`. For each child in A, lookup takes $O(1)$ time, pulling matches with FIFO order preservation.
@@ -913,37 +786,9 @@ That's the whole idea. Everything else is engineering around it.
       mermaid.run();
     }
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", function() {
-        renderMermaid();
-        setupScrollSpy();
-      });
+      document.addEventListener("DOMContentLoaded", renderMermaid);
     } else {
       renderMermaid();
-      setupScrollSpy();
-    }
-
-    function setupScrollSpy() {
-      if (!("IntersectionObserver" in window)) return;
-      var links = document.querySelectorAll(".arch-sidebar-nav a");
-      var tracked = [];
-      links.forEach(function(link) {
-        var href = link.getAttribute("href");
-        if (href && href.startsWith("#")) {
-          var el = document.getElementById(href.substring(1));
-          if (el) tracked.push({ el: el, link: link });
-        }
-      });
-      var observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting) {
-            links.forEach(function(l) { l.classList.remove("active"); });
-            var match = tracked.find(function(t) { return t.el === entry.target; });
-            if (match) match.link.classList.add("active");
-          }
-        });
-      }, { rootMargin: "0px 0px -65% 0px" });
-
-      tracked.forEach(function(t) { observer.observe(t.el); });
     }
   })();
 </script>
