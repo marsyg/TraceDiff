@@ -22,8 +22,8 @@ function renderPipeline() {
         : '<span class="w-4 h-4 rounded-full border border-[var(--border)] inline-block"></span>';
     html += '<div class="border rounded-lg px-3 py-2.5 bg-surface2 flex items-center gap-2.5 ' + border + '">'
       + badge
-      + '<div><div class="font-mono text-[11px] font-semibold ' + (st === "idle" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]") + '">' + s.label + "</div>"
-      + '<div class="font-mono text-[10px] text-[var(--text-muted)]">' + (st === "done" ? "complete" : st === "active" ? "running..." : "pending") + "</div></div></div>";
+      + '<div><div class="font-mono text-[13px] font-semibold ' + (st === "idle" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]") + '">' + s.label + "</div>"
+      + '<div class="font-mono text-[12px] text-[var(--text-muted)]">' + (st === "done" ? "complete" : st === "active" ? "running..." : "pending") + "</div></div></div>";
   });
   el("pipe-stages").innerHTML = html;
   icons();
@@ -213,7 +213,62 @@ function paintRuleButtons() {
   });
 }
 
+// ---- Theme Management (Light / Dark) -------------------------------------
+function getTheme() {
+  try {
+    var stored = localStorage.getItem("tracediff-theme");
+    if (stored === "dark" || stored === "light") return stored;
+    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return "dark";
+  } catch (e) {}
+  return "light";
+}
+
+function updateThemeUI(theme) {
+  var wrap = el("theme-icon-wrap");
+  var label = el("theme-label");
+  if (label) label.textContent = theme === "dark" ? "Light" : "Dark";
+  if (wrap) {
+    wrap.innerHTML = theme === "dark"
+      ? '<i data-lucide="sun" class="w-3.5 h-3.5 text-amber-400"></i>'
+      : '<i data-lucide="moon" class="w-3.5 h-3.5"></i>';
+    icons();
+  }
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  try {
+    localStorage.setItem("tracediff-theme", theme);
+  } catch (e) {}
+  updateThemeUI(theme);
+}
+
+function initTheme() {
+  var current = document.documentElement.getAttribute("data-theme") || getTheme();
+  setTheme(current);
+
+  var btn = el("theme-toggle");
+  if (btn) {
+    btn.addEventListener("click", function () {
+      var active = document.documentElement.getAttribute("data-theme") || "light";
+      var next = active === "dark" ? "light" : "dark";
+      setTheme(next);
+    });
+  }
+
+  if (window.matchMedia) {
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function (e) {
+      try {
+        if (!localStorage.getItem("tracediff-theme")) {
+          setTheme(e.matches ? "dark" : "light");
+        }
+      } catch (err) {}
+    });
+  }
+}
+
 function initApp() {
+  initTheme();
   paintApiMeta();
   wireDropzone("A"); wireDropzone("B");
 

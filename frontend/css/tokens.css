@@ -1,13 +1,13 @@
-/* TraceDiff design tokens — PRECISION edition, LIGHT theme.
-
-   Same token names as every previous edition. Components reference
-   tokens, never raw values, so this file is a drop-in replacement.
+/* TraceDiff design tokens — PRECISION edition.
+   Supports LIGHT and DARK themes.
+   Components reference tokens, never raw values, so this file is a drop-in replacement.
 
    Design intent: an instrument panel for people hunting a handful of
    real regressions inside thousands of noisy spans. Chrome stays
    neutral and quiet; the five diff inks carry all of the color. */
 
-:root {
+:root,
+[data-theme="light"] {
   color-scheme: light;
 
   /* ---- Surfaces: cool-neutral paper, hairline edges ---- */
@@ -36,6 +36,7 @@
   --ink-removed: 163 74 34;
   --ink-semantic: 163 32 26;
   --ink-uncertain: 117 70 122;
+  --ink-semantic-bg: rgb(var(--ink-semantic) / 0.12);
 
   --status-working: var(--ink-noise);
   --status-done: var(--ink-added);
@@ -45,6 +46,94 @@
   --hover-overlay: rgba(28, 27, 25, 0.045);
   --selected-bar: var(--text-primary);
   --focus-ring: #2d5bd6;
+  --focus-ring-glow: rgba(45, 91, 214, 0.15);
+  --btn-primary-hover: #34322d;
+  --tooltip-bg: #1c1b19;
+  --tooltip-text: #f4f3ef;
+  --tooltip-border: #1c1b19;
+  --shadow-tooltip: 0 4px 12px rgba(28, 27, 25, 0.18);
+  --shadow-toast: 0 8px 24px rgba(28, 27, 25, 0.14);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ---- Surfaces: precision dark charcoal, crisp hairline edges ---- */
+  --bg: #0e0e11;
+  --surface: #161619;
+  --surface-raised: #1f1f24;
+  --border: #2c2c34;
+  --border-strong: #494956;
+
+  /* ---- Text. Contrast quoted against --bg. ---- */
+  --text-primary: #f2f1ec;   /* ~16.5:1 against #0e0e11 */
+  --text-secondary: #a09e97; /* ~7.2:1  — body-copy minimum */
+  --text-muted: #72706a;     /* ~4.6:1  — labels and metadata */
+
+  /* ---- Ink: five diff states, calibrated for dark background with AA contrast:
+       noise      solid fill    amber-ochre  #d99521  (rgb 217 149 33)
+       added      solid fill    moss-emerald #6eb43f  (rgb 110 180 63)
+       removed    outline only  terracotta   #eb734b  (rgb 235 115 75)
+       semantic   solid+und     crimson      #eb5450  (rgb 235 84 80)
+       uncertain  dashed only   plum-orchid  #ba7ac9  (rgb 186 122 201) ---- */
+  --ink-noise: 217 149 33;
+  --ink-added: 110 180 63;
+  --ink-removed: 235 115 75;
+  --ink-semantic: 235 84 80;
+  --ink-uncertain: 186 122 201;
+  --ink-semantic-bg: rgb(var(--ink-semantic) / 0.18);
+
+  --status-working: var(--ink-noise);
+  --status-done: var(--ink-added);
+  --status-error: var(--ink-semantic);
+
+  /* ---- Interactive chrome ---- */
+  --hover-overlay: rgba(255, 255, 255, 0.055);
+  --selected-bar: var(--text-primary);
+  --focus-ring: #5884f5;
+  --focus-ring-glow: rgba(88, 132, 245, 0.25);
+  --btn-primary-hover: #dedcd4;
+  --tooltip-bg: #1f1f25;
+  --tooltip-text: #f2f1ec;
+  --tooltip-border: #3b3b47;
+  --shadow-tooltip: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e0e11;
+    --surface: #161619;
+    --surface-raised: #1f1f24;
+    --border: #2c2c34;
+    --border-strong: #494956;
+    --text-primary: #f2f1ec;
+    --text-secondary: #a09e97;
+    --text-muted: #72706a;
+    --ink-noise: 217 149 33;
+    --ink-added: 110 180 63;
+    --ink-removed: 235 115 75;
+    --ink-semantic: 235 84 80;
+    --ink-uncertain: 186 122 201;
+    --ink-semantic-bg: rgb(var(--ink-semantic) / 0.18);
+    --status-working: var(--ink-noise);
+    --status-done: var(--ink-added);
+    --status-error: var(--ink-semantic);
+    --hover-overlay: rgba(255, 255, 255, 0.055);
+    --selected-bar: var(--text-primary);
+    --focus-ring: #5884f5;
+    --focus-ring-glow: rgba(88, 132, 245, 0.25);
+    --btn-primary-hover: #dedcd4;
+    --tooltip-bg: #1f1f25;
+    --tooltip-text: #f2f1ec;
+    --tooltip-border: #3b3b47;
+    --shadow-tooltip: 0 4px 14px rgba(0, 0, 0, 0.45);
+    --shadow-toast: 0 8px 24px rgba(0, 0, 0, 0.55);
+  }
+}
+
+:root {
 
   /* ---- Shape primitives ---- */
   --px: 1px;

@@ -74,8 +74,9 @@ html, body {
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--text-primary);
-  color: var(--bg);
+  background: var(--tooltip-bg, var(--text-primary));
+  color: var(--tooltip-text, var(--bg));
+  border: 1px solid var(--tooltip-border, transparent);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-style: normal;
@@ -86,7 +87,7 @@ html, body {
   white-space: nowrap;
   z-index: var(--z-tooltip);
   pointer-events: none;
-  box-shadow: 0 4px 12px rgba(28, 27, 25, 0.18);
+  box-shadow: var(--shadow-tooltip, 0 4px 12px rgba(28, 27, 25, 0.18));
 }
 
 /* ================================================================
@@ -229,7 +230,7 @@ h1.font-extrabold + p {
   transition: background var(--dur-fast) var(--ease-out),
               transform var(--dur-fast) var(--ease-out);
 }
-#demo-btn:hover:not(:disabled), #run-btn:hover:not(:disabled) { opacity: 1; background: #34322d; }
+#demo-btn:hover:not(:disabled), #run-btn:hover:not(:disabled) { opacity: 1; background: var(--btn-primary-hover, #34322d); }
 #demo-btn:active:not(:disabled), #run-btn:active:not(:disabled) { transform: translateY(1px); }
 
 /* Inputs: consistent focus treatment */
@@ -239,7 +240,7 @@ input[type="text"], input[type="number"], select {
 input[type="text"]:focus, input[type="number"]:focus, select:focus {
   border-color: var(--focus-ring);
   outline: none;
-  box-shadow: 0 0 0 3px rgb(45 91 214 / 0.15);
+  box-shadow: 0 0 0 3px var(--focus-ring-glow, rgb(45 91 214 / 0.15));
 }
 
 /* Equivalence-rule toggles: pressed = filled ink, unpressed = quiet */
@@ -266,7 +267,7 @@ input[type="text"]:focus, input[type="number"]:focus, select:focus {
 }
 
 /* Toast: the single element allowed a real shadow, because it floats */
-#toast-wrap > div { box-shadow: 0 8px 24px rgba(28, 27, 25, 0.14); }
+#toast-wrap > div { box-shadow: var(--shadow-toast, 0 8px 24px rgba(28, 27, 25, 0.14)); }
 
 /* ================================================================
    Panel helpers (kept for JS-generated markup)

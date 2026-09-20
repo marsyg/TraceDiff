@@ -134,9 +134,9 @@ function formatValue(v, key) {
 function sigTint(sig) {
   // Delta pills never re-derive significance — the backend verdict is
   // authoritative. Tint purely from the sig already computed upstream.
-  if (sig === "semantic") return "text-[rgb(var(--ink-semantic)))] bg-[rgb(var(--ink-semantic))_/_0.12)] border-[rgb(var(--ink-semantic)))]";
-  if (sig === "uncertain") return "text-[rgb(var(--ink-uncertain)))] bg-transparent border-[rgb(var(--ink-uncertain)))]";
-  return "text-[rgb(var(--ink-noise)))] bg-[rgb(var(--ink-noise))_/_0.12)] border-[rgb(var(--ink-noise)))]";
+  if (sig === "semantic") return "text-[rgb(var(--ink-semantic))] bg-[rgb(var(--ink-semantic)_/_0.12)] border-[rgb(var(--ink-semantic))]";
+  if (sig === "uncertain") return "text-[rgb(var(--ink-uncertain))] bg-transparent border-[rgb(var(--ink-uncertain))]";
+  return "text-[rgb(var(--ink-noise))] bg-[rgb(var(--ink-noise)_/_0.12)] border-[rgb(var(--ink-noise))]";
 }
 
 function formatDelta(vA, vB, key, sig) {
@@ -145,7 +145,7 @@ function formatDelta(vA, vB, key, sig) {
   // 1. HTTP status code change label (key-driven, not a verdict).
   if (key === "http.status_code" || key === "status_code") {
     if (vA !== vB) {
-      return '<span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[rgb(var(--ink-semantic))_/_0.12)] text-[rgb(var(--ink-semantic)))] border border-[rgb(var(--ink-semantic)))]">STATUS CHANGE</span>';
+      return '<span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-[rgb(var(--ink-semantic)_/_0.12)] text-[rgb(var(--ink-semantic))] border border-[rgb(var(--ink-semantic))]">STATUS CHANGE</span>';
     }
     return "";
   }
@@ -241,7 +241,7 @@ function renderDivergences(description) {
         + '<span class="font-mono text-xs font-bold text-[rgb(var(--ink-semantic))]">' + esc(it.field) + '</span>'
         + ruleBadge
         + '</div>'
-        + '<div class="grid grid-cols-2 gap-2 font-mono text-xs pt-1 border-t border-[rgb(var(--ink-semantic))_/_0.2)]">'
+        + '<div class="grid grid-cols-2 gap-2 font-mono text-xs pt-1 border-t border-[var(--ink-semantic-bg)]">'
         + '<div><div class="text-[9px] uppercase tracking-wider text-[var(--text-muted)]">Trace A (baseline)</div><div class="mt-0.5">' + formatValue(it.rawA, it.field) + '</div></div>'
         + '<div><div class="text-[9px] uppercase tracking-wider text-[var(--text-muted)]">Trace B (target)</div><div class="mt-0.5 font-bold">' + formatValue(it.rawB, it.field) + '</div></div>'
         + '</div></div>';
@@ -350,13 +350,13 @@ function attrTable(nodeA, nodeB, highlight, sig) {
 
     var delta = isChanged ? formatDelta(vA, vB, k, sig) : "";
     var rowClass = isChanged
-      ? 'border-b border-edge bg-[rgb(var(--ink-semantic))_/_0.12)] hover:bg-[var(--surface-raised)] transition-colors'
+      ? 'border-b border-edge bg-[rgb(var(--ink-semantic)_/_0.12)] hover:bg-[var(--surface-raised)] transition-colors'
       : 'border-b border-edge/40 hover:bg-[var(--surface-raised)] transition-colors opacity-75 hover:opacity-100';
 
     var row = '<tr class="' + rowClass + '">'
       + '<td class="py-2 px-3 text-[var(--text-primary)] font-medium align-top whitespace-nowrap">'
       + esc(k)
-      + (isChanged ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-[rgb(var(--ink-semantic)))] ml-1.5 align-middle"></span>' : '')
+      + (isChanged ? '<span class="inline-block w-1.5 h-1.5 rounded-full bg-[rgb(var(--ink-semantic))] ml-1.5 align-middle"></span>' : '')
       + '</td>'
       + '<td class="py-2 px-3 align-top break-all font-mono">' + formatValue(vA, k) + '</td>'
       + '<td class="py-2 px-3 align-top break-all font-mono">' + formatValue(vB, k)
