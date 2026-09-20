@@ -40,7 +40,7 @@ flowchart LR
 
 ## Read deeper
 
-- [Developers](developers.html) — cost model, hot-spot map, what changed and why
+- [Developers](developers.html) — cost model, hot-spot map, AWS serverless cloud architecture, and optimization history
 - [Hash experiment](hash-experiment.html) — the xxhash saga: validation, bugs caught, measured verdict
 - [Engineering log](engineering-log.html) — difficulties, tradeoffs, full bugs register
 
