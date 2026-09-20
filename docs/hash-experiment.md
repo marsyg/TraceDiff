@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff — The xxhash Experiment
 ---
 
-[← Open TraceDiff App](../) · [Home](index.html) · [Developers](developers.html) · **Hash experiment** · [Engineering log](engineering-log.html)
+[← Open TraceDiff App](../) · [Home](index.html) · [Architecture](architecture.html) · [Developers](developers.html) · **Hash experiment** · [Engineering log](engineering-log.html)
 
 # The xxhash experiment: validated, measured, reverted
 

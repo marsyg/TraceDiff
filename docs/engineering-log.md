@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff — Engineering Log
 ---
 
-[← Open TraceDiff App](../) · [Home](index.html) · [Developers](developers.html) · [Hash experiment](hash-experiment.html) · **Engineering log**
+[← Open TraceDiff App](../) · [Home](index.html) · [Architecture](architecture.html) · [Developers](developers.html) · [Hash experiment](hash-experiment.html) · **Engineering log**
 
 # Engineering log: difficulties, tradeoffs, bugs
 

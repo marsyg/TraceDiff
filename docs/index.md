@@ -3,7 +3,7 @@ layout: default
 title: TraceDiff — Structural Trace Diffing
 ---
 
-[← Open TraceDiff App](../) · **Docs Home** · [Developers](developers.html) · [Hash experiment](hash-experiment.html) · [Engineering log](engineering-log.html)
+[← Open TraceDiff App](../) · **Docs Home** · [Architecture](architecture.html) · [Developers](developers.html) · [Hash experiment](hash-experiment.html) · [Engineering log](engineering-log.html)
 
 # TraceDiff — find the 3 real diffs, skip the other 999,997 events
 
@@ -40,7 +40,8 @@ flowchart LR
 
 ## Read deeper
 
-- [Developers](developers.html) — cost model, hot-spot map, AWS serverless cloud architecture, and optimization history
+- [Visual Architecture Guide](architecture.html) — end-to-end visual breakdown: Merkle subtree fingerprinting, skip math, and AWS distributed pipeline
+- [Developers](developers.html) — cost model, hot-spot map, benchmark oracle, and optimization history
 - [Hash experiment](hash-experiment.html) — the xxhash saga: validation, bugs caught, measured verdict
 - [Engineering log](engineering-log.html) — difficulties, tradeoffs, full bugs register
 
