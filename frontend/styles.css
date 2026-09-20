@@ -1,98 +1,168 @@
-/* TraceDiff styles — wired to design tokens in css/tokens.css */
+/* TraceDiff styles — PRECISION edition, LIGHT theme.
+   Wired to css/tokens.css. Loaded AFTER the Tailwind CDN script, and
+   uses doubled selectors where it must beat a Tailwind utility. */
+
 html, body {
   background: var(--bg);
   color: var(--text-primary);
   font-family: var(--font-sans);
+  font-style: normal;
 }
 
+/* Tabular numerals wherever numbers line up */
+.font-mono, .trace-value, #k-skip, #k-sem, #k-unc, #k-noise, #k-nodes, #k-time {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "zero" 1;
+}
+
+/* ================================================================
+   Scrollbars: slim, quiet
+   ================================================================ */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: var(--radius);
-  border: 2px solid var(--bg);
+  border-radius: 999px;
+  border: 2px solid var(--surface);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 
-.glow-emerald { box-shadow: 0 0 10px rgba(95, 191, 122, 0.45); }
-.glow-rose { box-shadow: 0 0 12px rgba(214, 63, 63, 0.5); }
-.glow-amber { box-shadow: 0 0 10px rgba(201, 162, 39, 0.45); }
+/* ================================================================
+   Emphasis rings (kept for JS that toggles these classes)
+   ================================================================ */
+.glow-emerald { box-shadow: 0 0 0 1px rgb(var(--ink-added)); }
+.glow-rose { box-shadow: 0 0 0 1px rgb(var(--ink-semantic)); }
+.glow-amber { box-shadow: 0 0 0 1px rgb(var(--ink-noise)); }
 
-@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+/* ================================================================
+   Motion. Only the live-status pulse and stage sweep run unprompted;
+   both signal real work in progress.
+   ================================================================ */
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
 .dot-live { animation: pulse-dot var(--pulse-period) ease-in-out infinite; }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { animation: spin var(--spin-period) linear infinite; }
 
-@keyframes flow { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-.stage-active {
-  background: linear-gradient(100deg, var(--surface) 30%, rgba(201, 162, 39, 0.15) 50%, var(--surface) 70%);
+/* Active pipeline stage: a neutral highlight sweeps across. No ink
+   hue, because loading is chrome, not data. */
+@keyframes flow { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+.stage-active.stage-active {
+  background: linear-gradient(
+    100deg,
+    var(--surface) 30%,
+    var(--surface-raised) 50%,
+    var(--surface) 70%
+  );
   background-size: 200% 100%;
-  animation: flow 1.6s linear infinite;
-  border-color: rgb(var(--ink-noise)) !important;
+  animation: flow 1.8s linear infinite;
+  border-color: var(--border-strong);
 }
 
-@keyframes skel { 0% { opacity: 0.45; } 50% { opacity: 1; } 100% { opacity: 0.45; } }
-.skel { animation: skel 1.2s ease-in-out infinite; }
+@keyframes skel { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.skel { animation: skel 1.4s ease-in-out infinite; }
 
+/* ================================================================
+   Tooltip: small, dark, high-contrast
+   ================================================================ */
 [data-tip] { position: relative; }
-[data-tip]:hover::after {
+[data-tip]:hover::after,
+[data-tip]:focus-visible::after {
   content: attr(data-tip);
   position: absolute;
   bottom: calc(100% + 8px);
   left: 50%;
   transform: translateX(-50%);
-  background: var(--surface-raised);
-  border: 1px solid var(--border-strong);
-  color: var(--text-primary);
-  font-size: var(--text-xs);
-  font-family: var(--font-mono);
-  padding: var(--space-1) var(--space-2);
+  background: var(--text-primary);
+  color: var(--bg);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-style: normal;
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-tight);
+  padding: var(--space-1) var(--space-3);
   border-radius: var(--radius);
   white-space: nowrap;
   z-index: var(--z-tooltip);
   pointer-events: none;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 12px rgba(28, 27, 25, 0.18);
 }
 
+/* ================================================================
+   Tree
+   ================================================================ */
 .tree-children {
   border-left: 1px solid var(--border);
   margin-left: 11px;
   padding-left: var(--tree-indent);
 }
 
-.tnode-row { transition: background var(--dur-fast) var(--ease-out); }
+.tnode-row {
+  font-size: var(--text-base);
+  padding-top: 3px;
+  padding-bottom: 3px;
+  border-radius: var(--radius);
+  transition: background var(--dur-fast) var(--ease-out);
+}
 .tnode-row:hover { background: var(--hover-overlay); }
 .tnode-row.selected {
   background: var(--surface-raised);
   box-shadow: inset 2px 0 0 var(--selected-bar);
 }
 
-.collapsed-row { border: 1px dashed var(--border-strong); }
+/* Collapsed bulk region: solid stroke. Dashed stays reserved for
+   uncertain, so a confirmed collapsed region never looks unresolved. */
+.collapsed-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: border-color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
 .collapsed-row:hover {
-  border-color: var(--text-secondary);
+  border-color: var(--border-strong);
   background: var(--hover-overlay);
 }
 
-.uncertain-outline { border: 1px dashed rgb(var(--ink-uncertain)) !important; }
-.tab-btn { transition: all var(--dur-med) var(--ease-out); }
-.dropzone.drag {
-  border-color: var(--border-strong) !important;
-  background: var(--surface-raised) !important;
+.uncertain-outline.uncertain-outline { border: 1px dashed rgb(var(--ink-uncertain)); }
+
+.tab-btn {
+  font-size: var(--text-base);
+  transition: color var(--dur-med) var(--ease-out),
+              background var(--dur-med) var(--ease-out),
+              border-color var(--dur-med) var(--ease-out);
 }
+
+.dropzone {
+  transition: border-color var(--dur-med) var(--ease-out),
+              background var(--dur-med) var(--ease-out);
+}
+.dropzone:hover { border-color: var(--border-strong); }
+.dropzone.drag {
+  border-color: var(--focus-ring);
+  background: var(--surface-raised);
+}
+
+.seg-btn {
+  font-size: var(--text-sm);
+  transition: opacity var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
+}
+.seg-btn:hover { background: var(--hover-overlay); }
 .seg-btn[aria-pressed="false"] { opacity: 0.45; }
 
+/* Search match: neutral highlight, no ink hue */
 mark.hl {
-  background: rgb(var(--ink-noise) / 0.12);
-  color: rgb(var(--ink-noise));
-  border-radius: var(--radius);
-  padding: 0 2px;
+  background: rgb(var(--ink-noise) / 0.22);
+  color: var(--text-primary);
+  border-radius: 2px;
+  padding: 0 1px;
 }
 
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 @media (max-width: 900px) { .detail-grid { grid-template-columns: 1fr; } }
 
@@ -100,12 +170,127 @@ mark.hl {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-width: 22px;
+  min-height: 22px;
   color: var(--text-muted);
   border-radius: var(--radius);
   line-height: 1;
-  transition: all var(--dur-fast) var(--ease-out);
+  transition: color var(--dur-fast) var(--ease-out),
+              background var(--dur-fast) var(--ease-out);
 }
 .caret-btn:hover {
   color: var(--text-primary);
   background: var(--hover-overlay);
 }
+
+/* ================================================================
+   Page-level overrides of Tailwind utilities in index.html.
+   These let the markup stay exactly as-is. Doubled selectors win.
+   ================================================================ */
+
+/* Header: quiet, no blur-glass */
+header.sticky.sticky {
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Hero headline: tighter and lighter than text-4xl font-extrabold */
+h1.font-extrabold.font-extrabold {
+  font-weight: var(--weight-medium);
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  text-wrap: balance;
+}
+h1.font-extrabold + p {
+  max-width: 52ch;
+  line-height: var(--leading-body);
+  text-wrap: pretty;
+}
+
+/* Hero tag chips: sentence-case, no tracked all-caps */
+.uppercase.uppercase { text-transform: none; }
+.tracking-widest.tracking-widest { letter-spacing: 0; }
+
+/* Small section labels stay readable at 11-12px instead of 10px */
+.text-\[10px\] { font-size: var(--text-xs); }
+.text-\[11px\] { font-size: var(--text-sm); }
+.text-xs { font-size: var(--text-sm); }
+.text-sm { font-size: var(--text-base); }
+
+/* Panels: one radius tier, hairline border, no shadow */
+.rounded-xl.rounded-xl { border-radius: var(--radius-panel); }
+.rounded-lg.rounded-lg { border-radius: var(--radius-ctl); }
+.rounded-md.rounded-md { border-radius: var(--radius); }
+.rounded-full.rounded-full { border-radius: var(--radius-pill); }
+
+/* Primary buttons: solid ink, real hover and press states */
+#demo-btn, #run-btn {
+  transition: background var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+#demo-btn:hover:not(:disabled), #run-btn:hover:not(:disabled) { opacity: 1; background: #34322d; }
+#demo-btn:active:not(:disabled), #run-btn:active:not(:disabled) { transform: translateY(1px); }
+
+/* Inputs: consistent focus treatment */
+input[type="text"], input[type="number"], select {
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+input[type="text"]:focus, input[type="number"]:focus, select:focus {
+  border-color: var(--focus-ring);
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(45 91 214 / 0.15);
+}
+
+/* Equivalence-rule toggles: pressed = filled ink, unpressed = quiet */
+.rule-btn {
+  font-size: var(--text-sm);
+  border-color: var(--border);
+  color: var(--text-muted);
+  background: transparent;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+.rule-btn:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.rule-btn[aria-pressed="true"] {
+  background: var(--text-primary);
+  border-color: var(--text-primary);
+  color: var(--bg);
+}
+
+/* KPI hero number: the one big moment on the page */
+#k-skip {
+  font-size: var(--text-xl);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-weight: var(--weight-medium);
+}
+
+/* Toast: the single element allowed a real shadow, because it floats */
+#toast-wrap > div { box-shadow: 0 8px 24px rgba(28, 27, 25, 0.14); }
+
+/* ================================================================
+   Panel helpers (kept for JS-generated markup)
+   ================================================================ */
+.pixel-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}
+
+.pixel-pill {
+  border-radius: var(--radius-pill);
+  padding: 2px var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.pixel-btn {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  border-radius: var(--radius-ctl);
+  transition: background var(--dur-fast) var(--ease-out),
+              transform var(--dur-fast) var(--ease-out);
+}
+.pixel-btn:hover { background: var(--surface-raised); }
+.pixel-btn:active { transform: translateY(1px); }
