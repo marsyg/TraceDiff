@@ -39,37 +39,156 @@ flowchart LR
 
 ---
 
-## 📑 Architecture Index
+<style>
+  html {
+    scroll-behavior: smooth;
+  }
+  @media (min-width: 1200px) {
+    .container-lg, .markdown-body {
+      max-width: 1360px !important;
+      position: relative !important;
+      padding-left: 310px !important;
+      box-sizing: border-box !important;
+    }
+    .arch-sidebar-nav {
+      position: fixed;
+      top: 2rem;
+      left: max(1.5rem, calc((100vw - 1360px) / 2));
+      width: 275px;
+      max-height: calc(100vh - 4rem);
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 1.25rem 1rem 1.5rem 1.25rem;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      z-index: 100;
+      scrollbar-width: thin;
+      scrollbar-color: #30363d transparent;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+  }
 
-<div style="background: rgba(22, 27, 34, 0.7); border: 1px solid var(--border, #30363d); border-radius: 8px; padding: 1.25rem 1.75rem; margin: 1.5rem 0 2rem 0;">
+  @media (max-width: 1199px) {
+    .arch-sidebar-nav {
+      margin: 1.5rem 0 2rem 0;
+      padding: 1.25rem;
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+    }
+  }
 
-* **Core Conceptual Foundations**:
-  * [§ 1. What a trace actually is](#1-what-a-trace-actually-is)
-  * [§ 2. Why a naive diff is too slow](#2-why-a-naive-diff-is-too-slow)
-  * [§ 3. The insight: fingerprint every subtree](#3-the-insight-fingerprint-every-subtree)
-  * [§ 4. One change ripples up](#4-one-change-ripples-up)
-* **Diff Engine Mechanics**:
-  * [§ 5. The diff walk — top-down, skip the matches](#5-the-diff-walk--top-down-skip-the-matches)
-  * [§ 6. Concrete walkthrough — a small tree](#6-concrete-walkthrough--a-small-tree)
-  * [§ 7. Three verdicts per node (raw vs. normalized)](#7-three-verdicts-per-node)
-  * [§ 8. Skip accounting — the three buckets](#8-skip-accounting--the-three-buckets)
-  * [§ 9. Why depth matters for skip %](#9-why-depth-matters-for-skip-)
-  * [§ 10. Complexity — the win](#10-complexity--the-win)
-* **Pipelines & Cloud Architecture**:
-  * [§ 11. Local single-process pipeline](#11-local-single-process-pipeline)
-  * [§ 12. Distributed Cloud Architecture (AWS Serverless Engine)](#12-distributed-cloud-architecture-aws-serverless-engine)
-    * [12.1 Phase 1: Ingestion & Storage Lifecycle](#121-phase-1-ingestion--direct-storage-lifecycle)
-    * [12.2 Phase 2: Distributed Map-State & Query Pipeline](#122-phase-2-distributed-map-state--query-pipeline)
-    * [12.3 Consolidated End-to-End Cloud Blueprint](#123-consolidated-end-to-end-cloud-blueprint)
-    * [12.4 Key Architectural Pillars](#124-key-architectural-pillars)
-* **System Indexing & Reference**:
-  * [§ 13. Indexing Architecture — How TraceDiff Localizes Divergences in O(1)](#13-indexing-architecture--how-tracediff-localizes-divergences-in-o1)
-    * [13.1 Tier 1: Subtree Merkle Indexing](#131-tier-1-subtree-merkle-indexing-cryptographic-hash-index)
-    * [13.2 Tier 2: Sibling Alignment Bucket Indexing](#132-tier-2-in-memory-sibling-alignment-indexing-srccorematch-childrents)
-    * [13.3 Tier 3: Cloud Range Indexing in DynamoDB](#133-tier-3-cloud-range-indexing-in-dynamodb-resultstable)
-  * [Cheat sheet](#cheat-sheet)
-  * [One diagram to rule them all](#one-diagram-to-rule-them-all)
+  .arch-sidebar-nav h3 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.95rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #58a6ff;
+    border-bottom: 1px solid #21262d;
+    padding-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .arch-sidebar-nav .nav-group-title {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8b949e;
+    margin: 0.9rem 0 0.35rem 0;
+  }
+  .arch-sidebar-nav ul {
+    list-style: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .arch-sidebar-nav li {
+    margin: 0.25rem 0 !important;
+    line-height: 1.35 !important;
+    font-size: 0.83rem !important;
+  }
+  .arch-sidebar-nav a {
+    color: #c9d1d9 !important;
+    text-decoration: none !important;
+    display: block;
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    transition: all 0.15s ease-in-out;
+  }
+  .arch-sidebar-nav a:hover,
+  .arch-sidebar-nav a.active {
+    color: #58a6ff !important;
+    background: rgba(56, 139, 253, 0.15) !important;
+    font-weight: 600;
+    padding-left: 0.6rem;
+  }
+  .arch-sidebar-nav .sub-items {
+    padding-left: 0.85rem !important;
+    border-left: 1px solid #21262d;
+    margin-left: 0.4rem !important;
+  }
+  .arch-sidebar-nav .sub-items li {
+    font-size: 0.78rem !important;
+  }
+</style>
 
+<div class="arch-sidebar-nav">
+  <h3>📑 Architecture Index</h3>
+  
+  <div class="nav-group-title">Overview & TL;DR</div>
+  <ul>
+    <li><a href="#tldr--the-30-second-version">⚡ TL;DR (30-Sec Pitch)</a></li>
+  </ul>
+
+  <div class="nav-group-title">Foundations</div>
+  <ul>
+    <li><a href="#1-what-a-trace-actually-is">1. What a trace is</a></li>
+    <li><a href="#2-why-a-naive-diff-is-too-slow">2. Why naive diff is slow</a></li>
+    <li><a href="#3-the-insight-fingerprint-every-subtree">3. Fingerprint subtrees</a></li>
+    <li><a href="#4-one-change-ripples-up">4. One change ripples up</a></li>
+  </ul>
+
+  <div class="nav-group-title">Diff Engine Mechanics</div>
+  <ul>
+    <li><a href="#5-the-diff-walk--top-down-skip-the-matches">5. The diff walk (DFS)</a></li>
+    <li><a href="#6-concrete-walkthrough--a-small-tree">6. Concrete walkthrough</a></li>
+    <li><a href="#7-three-verdicts-per-node">7. Three verdicts per node</a></li>
+    <li><a href="#8-skip-accounting--the-three-buckets">8. Skip accounting math</a></li>
+    <li><a href="#9-why-depth-matters-for-skip-">9. Depth & skip %</a></li>
+    <li><a href="#10-complexity--the-win">10. Asymptotic complexity</a></li>
+  </ul>
+
+  <div class="nav-group-title">Cloud & Pipelines</div>
+  <ul>
+    <li><a href="#11-local-single-process-pipeline">11. Local CLI pipeline</a></li>
+    <li><a href="#12-distributed-cloud-architecture-aws-serverless-engine">12. AWS Cloud Architecture</a>
+      <ul class="sub-items">
+        <li><a href="#121-phase-1-ingestion--direct-storage-lifecycle">12.1 Phase 1: Ingestion</a></li>
+        <li><a href="#122-phase-2-distributed-map-state--query-pipeline">12.2 Phase 2: Map-State</a></li>
+        <li><a href="#123-consolidated-end-to-end-cloud-blueprint">12.3 Consolidated Blueprint</a></li>
+        <li><a href="#124-key-architectural-pillars">12.4 Architectural Pillars</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <div class="nav-group-title">Indexing Architecture</div>
+  <ul>
+    <li><a href="#13-indexing-architecture--how-tracediff-localizes-divergences-in-o1">13. 3-Tier Indexing</a>
+      <ul class="sub-items">
+        <li><a href="#131-tier-1-subtree-merkle-indexing-cryptographic-hash-index">13.1 Tier 1: Merkle Hash</a></li>
+        <li><a href="#132-tier-2-in-memory-sibling-alignment-indexing-srccorematch-childrents">13.2 Tier 2: Sibling Buckets</a></li>
+        <li><a href="#133-tier-3-cloud-range-indexing-in-dynamodb-resultstable">13.3 Tier 3: DynamoDB Range</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <div class="nav-group-title">Reference</div>
+  <ul>
+    <li><a href="#cheat-sheet">📖 Cheat sheet</a></li>
+    <li><a href="#one-diagram-to-rule-them-all">🎯 30-Second Judge Diagram</a></li>
+  </ul>
 </div>
 
 ---
@@ -794,27 +913,37 @@ That's the whole idea. Everything else is engineering around it.
       mermaid.run();
     }
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", renderMermaid);
+      document.addEventListener("DOMContentLoaded", function() {
+        renderMermaid();
+        setupScrollSpy();
+      });
     } else {
       renderMermaid();
+      setupScrollSpy();
     }
 
-    document.querySelectorAll("details").forEach(function(detail) {
-      detail.addEventListener("toggle", function() {
-        if (detail.open && typeof mermaid !== "undefined") {
-          var unrendered = detail.querySelectorAll("pre code.language-mermaid, div.language-mermaid pre code, pre.language-mermaid");
-          if (unrendered.length > 0) {
-            unrendered.forEach(function(code) {
-              var container = code.closest(".language-mermaid") || code.closest("pre") || code;
-              var div = document.createElement("div");
-              div.className = "mermaid";
-              div.textContent = code.textContent.trim();
-              container.parentNode.replaceChild(div, container);
-            });
-          }
-          mermaid.run({ nodes: detail.querySelectorAll(".mermaid") });
+    function setupScrollSpy() {
+      if (!("IntersectionObserver" in window)) return;
+      var links = document.querySelectorAll(".arch-sidebar-nav a");
+      var tracked = [];
+      links.forEach(function(link) {
+        var href = link.getAttribute("href");
+        if (href && href.startsWith("#")) {
+          var el = document.getElementById(href.substring(1));
+          if (el) tracked.push({ el: el, link: link });
         }
       });
-    });
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            links.forEach(function(l) { l.classList.remove("active"); });
+            var match = tracked.find(function(t) { return t.el === entry.target; });
+            if (match) match.link.classList.add("active");
+          }
+        });
+      }, { rootMargin: "0px 0px -65% 0px" });
+
+      tracked.forEach(function(t) { observer.observe(t.el); });
+    }
   })();
 </script>

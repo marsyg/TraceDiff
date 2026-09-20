@@ -40,10 +40,14 @@ flowchart LR
 
 ## Read deeper
 
-- [Visual Architecture Guide](architecture.html) — end-to-end visual breakdown: Merkle subtree fingerprinting, skip math, and AWS distributed pipeline
-- [Developers](developers.html) — cost model, hot-spot map, benchmark oracle, and optimization history
-- [Hash experiment](hash-experiment.html) — the xxhash saga: validation, bugs caught, measured verdict
-- [Engineering log](engineering-log.html) — difficulties, tradeoffs, full bugs register
+- **[Visual Architecture Guide](architecture.html)** — End-to-end visual breakdown:
+  - Merkle subtree fingerprinting & $O(1)$ skip proofs (§1–§4)
+  - Top-down diff walk with explicit DFS stack & child matching (§5–§6)
+  - AWS Serverless distributed pipeline with Step Functions & 10-worker MapDiff (§12)
+  - 3-Tier Indexing Architecture (Subtree Merkle hash, Sibling buckets, DynamoDB composite range index) (§13)
+- **[Developers Guide](developers.html)** — Cost model, hot-spot map, benchmark oracle, and optimization history
+- **[Hash experiment](hash-experiment.html)** — The xxhash saga: validation, bugs caught, measured verdict
+- **[Engineering log](engineering-log.html)** — Difficulties, tradeoffs, full bugs register
 
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <script>

@@ -168,14 +168,13 @@ tracediff/
 │   └── setup.ts            # Test preload: conditional AWS-SDK mocks (see Tests)
 ├── frontend/               # Single-file web app (unified diff tree + KPI bar + detail panel)
 ├── fixtures/               # Sample traces for tests and local demo
-├── docs/                   # Jekyll docs site (performance notes, hash experiment, engineering log)
+├── docs/                   # Jekyll docs portal & Architecture Guide (docs/architecture.md)
 ├── infra/
 │   ├── template.yaml       # SAM/CloudFormation — all AWS resources
 │   └── deploy.sh           # One-command: bun build → sam build → sam deploy
 ├── dist/lambda/            # Bundled Lambda handlers (git-ignored, built by bun run build)
 ├── .vscode/
 │   └── settings.json       # Biome format-on-save for the whole team
-├── ARCHITECTURE.md         # Visual guide: how the engine works, with diagrams
 ├── package.json
 ├── tsconfig.json           # strict, esnext, moduleResolution: bundler (Bun-compatible)
 ├── bunfig.toml             # Bun test config (coverage enabled + test preload)
@@ -330,11 +329,16 @@ Merge to `main` at each phase milestone checkpoint.
 | Cause | Prevention |
 |-------|-----------|
 | CRLF vs LF line endings | `.gitattributes` forces `eol=lf` (Biome rejects CRLF) |
-| Inc---
+| Inconsistent quotes / indentation | Biome enforces on save — never reformat manually |
+| Both editing `package.json` | One person owns scripts at a time |
+| Both editing `src/core/types.ts` | Freeze after Phase 1 — it's the shared contract |
+| Stale `pnpm-lock.yaml` | Always run `pnpm install` after pulling |
+
+---
 
 ## High-Level System Architecture
 
-> 📖 **Deep Dive**: For the full visual guide with tree diagrams, edge cases, and animated walkthroughs, see [`ARCHITECTURE.md`](ARCHITECTURE.md) or the [Live Docs Portal](https://marsyg.github.io/TraceDiff/docs/architecture.html).
+> 📖 **Deep Dive**: For the full visual guide with tree diagrams, edge cases, and animated walkthroughs, see [`docs/architecture.md`](docs/architecture.md) or the [Live Docs Portal](https://marsyg.github.io/TraceDiff/docs/architecture.html).
 
 TraceDiff is built around a dual-execution model: a **zero-dependency, single-process local CLI** for sub-millisecond developer loops, and a **massively parallel AWS serverless pipeline** for enterprise telemetry traces with millions of events.
 
