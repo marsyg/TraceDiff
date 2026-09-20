@@ -151,7 +151,6 @@ full visual guide — tree diagrams, edge cases, animated walkthroughs.
 
 | Resource | Value |
 |---|---|
-
 | API Gateway Endpoint | https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev/ |
 | Region | us-east-1 |
 | S3 Upload Bucket | `tracediff-uploads-140023404870-dev` |
