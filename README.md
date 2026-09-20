@@ -151,7 +151,7 @@ full visual guide — tree diagrams, edge cases, animated walkthroughs.
 
 | Resource | Value |
 |---|---|
-| Web Visualizer | https://marsyg.github.io/TraceDiff/ |
+
 | API Gateway Endpoint | https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev/ |
 | Region | us-east-1 |
 | S3 Upload Bucket | `tracediff-uploads-140023404870-dev` |
@@ -159,8 +159,7 @@ full visual guide — tree diagrams, edge cases, animated walkthroughs.
 | DynamoDB Results Table | `tracediff-results-dev` |
 | Step Functions ARN | `arn:aws:states:us-east-1:140023404870:stateMachine:DiffStateMachine-2ryHzalVPc5N` |
 
-Override the API target on the hosted visualizer:
-`https://marsyg.github.io/TraceDiff/?api=<your-endpoint>`
+
 
 ## Contributing
 
