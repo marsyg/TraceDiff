@@ -330,104 +330,194 @@ Merge to `main` at each phase milestone checkpoint.
 | Cause | Prevention |
 |-------|-----------|
 | CRLF vs LF line endings | `.gitattributes` forces `eol=lf` (Biome rejects CRLF) |
-| Inconsistent quotes / indentation | Biome enforces on save — never reformat manually |
-| Both editing `package.json` | One person owns scripts at a time |
-| Both editing `src/core/types.ts` | Freeze after Phase 1 — it's the shared contract |
-| Stale `pnpm-lock.yaml` | Always run `pnpm install` after pulling |
+| Inc---
+
+## High-Level System Architecture
+
+> 📖 **Deep Dive**: For the full visual guide with tree diagrams, edge cases, and animated walkthroughs, see [`ARCHITECTURE.md`](ARCHITECTURE.md) or the [Live Docs Portal](https://marsyg.github.io/TraceDiff/docs/architecture.html).
+
+TraceDiff is built around a dual-execution model: a **zero-dependency, single-process local CLI** for sub-millisecond developer loops, and a **massively parallel AWS serverless pipeline** for enterprise telemetry traces with millions of events.
+
+```mermaid
+flowchart TD
+  subgraph ClientTier["1. Client Ingestion Layer"]
+    OTEL["OpenTelemetry Traces / JSON"] --> PARSERS["Format Parsers<br/>• OTel Span Tree<br/>• Nested JSON<br/>• Flat Event Stream"]
+    UI["Web Visualizer UI<br/>(CloudFront + S3)"]
+    CLI["TraceDiff CLI<br/>(Local Bun Runtime)"]
+  end
+
+  subgraph CloudGateway["2. Cloud Ingestion & Storage Tier"]
+    APIGW["API Gateway /dev<br/>(CORS Enabled)"]
+    S3["Amazon S3 Bucket<br/>tracediff-uploads-*<br/>(14-Day Auto-TTL)"]
+    T_JOBS[("DynamoDB: JobsTable<br/>Status, KPIs & Metadata")]
+  end
+
+  subgraph Engine["3. Core Algorithmic & Indexing Engine"]
+    RULES["Pluggable Normalization<br/>(Timestamp, UUID, Tolerance)"]
+    T1_MERKLE["Tier 1: Subtree Merkle Index<br/>(rawHash & normalizedHash)"]
+    DIFF_WALK["Iterative DFS Diff Walk<br/>(Explicit Call Stack)"]
+    T2_SIBLING["Tier 2: Sibling Bucket Index<br/>(O(k) Hash & Label Buckets)"]
+    CLASSIFY["Classification Engine<br/>(Semantic, Noise, Uncertain)"]
+  end
+
+  subgraph DistributedCloud["4. AWS Serverless Execution Engine"]
+    SFN["AWS Step Functions<br/>(DiffStateMachine Pipeline)"]
+    MAP_DIFF["Distributed Map State<br/>(Concurrency: 10 Workers)"]
+    WORKER["DiffWorker Lambdas<br/>(3008 MB RAM each)"]
+    FINOPS["FinOps Cost Engine<br/>(AWS US-East-1 List Pricing)"]
+  end
+
+  subgraph PersistenceDelivery["5. Persistence & Delivery Tier"]
+    T_RES[("DynamoDB: ResultsTable<br/>Tier 3: Composite Range Index<br/>PK: jobId | SK: diffIndex")]
+    OUT_TERM["Terminal ANSI Visualizer"]
+    OUT_JSON["Machine-Readable JSON"]
+    OUT_HTML["Self-Contained HTML Report"]
+  end
+
+  CLI --> PARSERS --> RULES --> T1_MERKLE --> DIFF_WALK --> T2_SIBLING --> CLASSIFY
+  CLASSIFY --> OUT_TERM & OUT_JSON & OUT_HTML
+
+  UI & CLI -->|"Presigned PUT"| S3
+  UI & CLI -->|"Submit Job"| APIGW --> T_JOBS
+  APIGW --> SFN --> MAP_DIFF --> WORKER
+  WORKER --> RULES
+  WORKER -->|"Batch write diffs"| T_RES
+  MAP_DIFF --> FINOPS -->|"Write COMPLETED"| T_JOBS
+  UI -->|"Query status & KPIs"| APIGW --> T_JOBS
+  UI -->|"Paginated cursor query"| APIGW --> T_RES
+```
 
 ---
 
-## How It Works
-
-> Visual version with diagrams: [`ARCHITECTURE.md`](ARCHITECTURE.md) — read it before you demo, explain, or change the engine.
-
-### 1. Normalize
-Each node passes through the active rules (single fused pass; custom rules fall back to sequential application):
-
-| Rule | What it does |
-|------|-------------|
-| `ignore-timestamps` | Normalize timestamp fields — numeric and string-encoded (`timestamp_raw`, `db.timestamp_iso`); `time_zone` / `date_of_birth` stay semantic |
-| `canonicalize-ids` | Replace UUID/hex ID values with a fixed `__TRACEDIFF_ID__` sentinel |
-| `numeric-tolerance` | Bucket numbers within 5% jitter (exact comparison deferred to classify) |
-| `sort-concurrent` | Sort children of parallel spans (by label, then id) before hashing |
-| `ignore-fields` | Drop user-specified attribute keys (`--ignore-fields`) |
-
-### 2. Build Merkle Tree
-Two fingerprints per node — this is what separates "identical" from "same after rules":
+### The Minimum 30-Second Mental Model
 
 ```
-norm(node) = SHA-256(normalize(content) ‖ norm(child_1) ‖ …)
-raw(node)  = SHA-256(raw content       ‖ raw(child_1)  ‖ …)
+Trace A ──► Equivalence Normalization ──► Merkle Subtree Hash ──┐
+                                                               ├──► Top-Down Diff Walk ──► ~0.1% Divergences
+Trace B ──► Equivalence Normalization ──► Merkle Subtree Hash ──┘    (Identical branches skipped in O(1))
 ```
 
-- `norm` differs → **diverges**: a real difference, keep walking
-- `norm` matches, `raw` differs → **noise**: something changed, a rule vouched for it — skip with a note
-- Both match → **identical**: skip silently
-
-Either way, a hash match skips the whole subtree in O(1).
-
-### 3. Diff Walk
-Top-down DFS with an explicit stack (no recursion → no stack overflow at 100K depth):
-- Hash match → skip entire subtree (`nodesSkipped`)
-- Otherwise → 2-pass children matching (exact hash buckets, then same-label pairing to avoid false add/remove pairs)
-- Removed / depth-capped subtrees are reported whole (`nodesBulkReported`, never counted as skips)
-- Recurse only into genuinely diverged children
-
-Invariant: `traceASize == nodesVisited + nodesSkipped + nodesBulkReported`.
-`skipPercentage` counts only genuine Merkle skips.
-
-### 4. Classify
-Each raw diff goes through `rule.classify()` → `semantic | noise | uncertain`.
-Multiple changed fields on one node collapse into a single diff with worst-wins significance.
-
-### Complexity
-
-| Operation | Naive | TraceDiff | Speedup (N=1M, D=100) |
-|-----------|-------|-----------|----------------------|
-| Subtree equality | O(N) | O(1) | 1,000,000× |
-| Full diff | O(N²m²) | O(N + D·log N) | ~100,000× |
-| Children matching | O(k²) | O(k) | k× |
+1. **Subtree Fingerprinting**: Bottom-up 256-bit hashes compute a fingerprint for every node covering its attributes and children.
+2. **Top-Down Diff Walk**: If fingerprints match, the entire subtree is identical — **skip in $O(1)$**. If fingerprints differ, recurse only into diverged branches.
+3. **Change-Proportional Cost**: Execution time scales with the size of the *difference* ($O(D \log N)$), rather than trace size ($O(N^2 m^2)$).
+4. **The Strict Accounting Invariant**:
+   $$\text{traceASize} = \text{nodesVisited} + \text{nodesSkipped} + \text{nodesBulkReported}$$
+   *Only genuine hash-verified matches count toward $\text{nodesSkipped}$.*
 
 ---
 
-## AWS Architecture
+### 3-Tier Indexing Architecture
+
+TraceDiff achieves $O(1)$ skipping and instant browser rendering through three complementary indexing layers:
+
+| Tier | Index Type | Location | Purpose & Complexity Win |
+|---|---|---|---|
+| **Tier 1** | **Subtree Merkle Hash Index** | In-Memory / Core Engine | Cryptographic SHA-256 digests (`rawHash` and `normalizedHash`). Replaces recursive $O(N)$ tree inspections with $O(1)$ subtree equality skips. |
+| **Tier 2** | **Sibling Bucket Alignment Index** | `src/core/match-children.ts` | Two-pass map bucketing (`byHash` for exact matches, `byLabel` for structural pairing). Reduces sibling alignment from quadratic $O(k^2)$ to linear $O(k)$. |
+| **Tier 3** | **Composite Range Index** | DynamoDB `ResultsTable` | Primary key `PK: jobId` + `SK: diffIndex`. Enables frontend cursor pagination without deserializing 1,000,000+ nodes into browser memory. |
+
+---
+
+### Algorithmic Pipeline & Rules
+
+#### 1. Normalization (Pluggable Equivalence)
+Traces are pre-processed through a single fused normalization pass to eliminate benign environmental noise:
+
+| Rule | What it does | Example |
+|---|---|---|
+| `ignore-timestamps` | Normalizes timestamp numbers and ISO-8601 strings | `1711000000.123` → `0` |
+| `canonicalize-ids` | Replaces UUIDs and 16/32-byte hex hashes with a fixed sentinel | `a3f89c...` → `__TRACEDIFF_ID__` |
+| `numeric-tolerance` | Buckets floating-point values within a 5% jitter window | `42.1 ms` vs `43.0 ms` |
+| `sort-concurrent` | Orders sibling spans deterministically before hashing | Async tasks execute in arbitrary order |
+| `ignore-fields` | Strips ephemeral keys specified by user flags (`--ignore-fields`) | Temporary session metadata |
+
+#### 2. Dual Merkle Fingerprinting
+Every node receives two distinct 256-bit hashes:
+```
+norm(node) = SHA-256( normalize(content) ‖ norm(child_1) ‖ … ‖ norm(child_k) )
+raw(node)  = SHA-256( raw_content        ‖ raw(child_1)  ‖ … ‖ raw(child_k)  )
+```
+- **`norm` and `raw` match**: Identical subtree → **skip silently in $O(1)$**.
+- **`norm` matches, `raw` differs**: Benign variance voucher by a rule → **noise skip**.
+- **`norm` differs**: Real behavioral difference → **recurse into children**.
+
+#### 3. Iterative Diff Walk (Explicit Stack)
+To guarantee stability on traces with 100,000+ depth levels, the diff walk uses an explicit stack rather than recursion, eliminating stack overflow risks.
+
+#### 4. Multi-Field Classification
+Mutated attributes on each node pass through `rule.classify()`, mapping to three discrete verdicts:
+- **`semantic`**: Real regression (e.g. HTTP 200 → 500, database returning 0 rows).
+- **`noise`**: Acceptable variance (e.g. timestamp jitter, rotated request IDs).
+- **`uncertain`**: Large deviations exceeding tolerance thresholds.
+
+Multiple mutated fields on a single node collapse with **worst-wins significance** (`semantic > uncertain > noise`).
+
+---
+
+### AWS Serverless Cloud Architecture
+
+When processing large traces or running asynchronous team workflows, TraceDiff deploys as an AWS SAM serverless stack:
 
 ```
-Frontend (S3 static hosting + CloudFront)
-    │ HTTP
+Web Visualizer (S3 + CloudFront CDN)
+    │ HTTP REST
     ▼
-API Gateway
- ├── POST /jobs        → Lambda: submit-job → Step Functions
- │                              └─ Map state (10× parallel)
- │                                     └─ Lambda: diff-worker
- │                                            ├─ S3 (read traces)
- │                                            └─ DynamoDB (write results)
- └── GET  /jobs/{id}   → Lambda: get-job → DynamoDB
+Amazon API Gateway (/dev)
+ ├── GET  /presign           → Lambda: presign      (Generates direct S3 upload URLs)
+ ├── POST /jobs              → Lambda: submit-job   (Writes PENDING to DynamoDB & starts Step Fn)
+ ├── GET  /jobs/:id          → Lambda: get-job      (Returns job status, KPIs, and FinOps metrics)
+ └── GET  /jobs/:id/results  → Lambda: get-job      (Streams paginated diffs from ResultsTable)
 
-S3          — trace uploads + static frontend hosting
-CloudFront  — CDN in front of the frontend bucket (invalidated on deploy)
-DynamoDB    — jobs table + results table
+AWS Step Functions (DiffStateMachine)
+ └── LoadTraces Lambda ──► MapDiff (10 Concurrent DiffWorkers, 3008 MB RAM) ──► Aggregate Lambda ──► UpdateStatus Lambda
 ```
 
-### Frontend
+#### Key Cloud Capabilities
+1. **Direct S3 Presigned Uploads**: Multi-hundred-megabyte trace files stream directly into S3, bypassing API Gateway's 10 MB payload ceiling. Uploads are configured with a 14-day auto-TTL lifecycle rule.
+2. **Distributed Map-State Concurrency**: Step Functions slices traces into chunks and fans out diff processing across 10 concurrent `DiffWorker` Lambda instances provisioned with 3,008 MB RAM each.
+3. **Dual DynamoDB Tables**:
+   - `JobsTable`: Tracks job metadata, lifecycle state (`PENDING` → `RUNNING` → `COMPLETED`/`FAILED`), total duration, and KPI summaries.
+   - `ResultsTable`: Stores the divergence tree indexed by composite key `jobId` + `diffIndex` for cursor pagination.
+4. **Embedded FinOps Cost Engine**: Automatically models the dollar delta of architectural regressions by calculating AWS resource pricing for compute, memory, and database operations.
+5. **Zero-Webpack Bun Bundling**: Single-command build (`bun build --target=node`) produces standalone, optimized JavaScript handlers targeting Node.js 22.x without webpack configuration drift.
 
-`frontend/` is a single-file app (`index.html`, Tailwind CDN + vanilla JS, no build step —
-`aws s3 sync` deploys it as-is). One unified diff tree rooted at the common root,
-colored per node state (unchanged / noise / added / removed / semantic / uncertain);
-unchanged and noise subtrees render collapsed GitHub-diff style. KPI bar leads with
-skip %, then semantic/uncertain/noise badges, sizes, and timing; clicking any row
-opens the detail panel (description, side-by-side attributes, `classifiedBy` rule tag).
+#### Live Cloud Deployment (`dev`)
 
-```bash
-# Point it at any backend without redeploying
-https://<your-cloudfront-host>/?api=https://<api-gateway-host>/dev
-```
+| Resource | Identifier / Endpoint |
+|---|---|
+| **Web Visualizer App** | `https://marsyg.github.io/TraceDiff/` |
+| **API Gateway Endpoint** | `https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev/` |
+| **Region** | `us-east-1` |
+| **S3 Upload Bucket** | `tracediff-uploads-140023404870-dev` |
+| **DynamoDB Jobs Table** | `tracediff-jobs-dev` |
+| **DynamoDB Results Table** | `tracediff-results-dev` |
+| **Step Functions ARN** | `arn:aws:states:us-east-1:140023404870:stateMachine:DiffStateMachine-2ryHzalVPc5N` |
 
-It includes a 1-click benchmark demo (deterministic ~1K-span checkout pair with
-5 injected regressions), trace upload with format auto-detect, rule toggles with
-tolerance/ignore-fields inputs, search + group-by + significance filters, and a
-live Step Functions pipeline view. Every value comes from the backend or your
-files — no mock diff data.
+---
+
+### Algorithmic Complexity
+
+| Operation | Naive Tree Diff | TraceDiff Merkle Engine | Asymptotic Speedup |
+|---|---|---|---|
+| **Subtree Equality Check** | $O(N)$ traversal | **$O(1)$ hash compare** | **1,000,000×** ($N=1\text{M}$) |
+| **Full Tree Diff** | $O(N^2 \cdot m^2)$ edit distance | **$O(N + D \log N)$** | **~100,000×** ($N=1\text{M}, D=100$) |
+| **Sibling Alignment** | $O(k^2)$ pairwise loop | **$O(k)$ hash bucket lookup** | **$k\times$** ($k$ concurrent spans) |
+| **Identical Trace Compare** | $O(N)$ full traversal | **$O(1)$ root match & stop** | **Instantaneous** |
+
+---
+
+### Web Visualizer Application
+
+The frontend (`frontend/index.html`) is a zero-build single-page application hosted on S3 and delivered globally via CloudFront. It communicates directly with the API Gateway endpoints:
+
+- **1-Click Benchmark Demonstration**: Compares deterministic checkout traces with 5 injected regressions.
+- **Trace Upload with Format Auto-Detection**: Supports OpenTelemetry JSON, nested span trees, and flat event arrays.
+- **Hierarchical Diff Tree**: Displays nodes color-coded by state (semantic regressions in red, noise in grey, additions in green).
+- **KPI Metrics Bar**: Highlights subtree skip %, total timing, and count breakdown by significance.
+- **Dynamic API Target**: Override the backend endpoint dynamically via query parameter:
+  ```
+  https://marsyg.github.io/TraceDiff/?api=https://adw2m5fxnj.execute-api.us-east-1.amazonaws.com/dev
+  ```
 
 ---
 

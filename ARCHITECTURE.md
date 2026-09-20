@@ -1,9 +1,3 @@
----
-layout: default
-title: How TraceDiff Works — Visual Guide & Architecture
----
-
-[← Open TraceDiff App](../) · [Home](index.html) · **Architecture** · [Developers](developers.html) · [Hash experiment](hash-experiment.html) · [Engineering log](engineering-log.html)
 
 # How `tracediff` Works — Visual Guide
 
