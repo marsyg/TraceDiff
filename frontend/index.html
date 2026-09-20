@@ -7,33 +7,48 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = { theme: { extend: {
-  colors: { oled: "#09090b", surface: "#121215", surface2: "#18181b", edge: "#27272a" },
+  colors: {
+    oled: "var(--bg)",
+    surface: "var(--surface)",
+    surface2: "var(--surface-raised)",
+    edge: "var(--border)",
+    "edge-strong": "var(--border-strong)",
+    "ink-noise": "rgb(var(--ink-noise))",
+    "ink-added": "rgb(var(--ink-added))",
+    "ink-removed": "rgb(var(--ink-removed))",
+    "ink-semantic": "rgb(var(--ink-semantic))",
+    "ink-uncertain": "rgb(var(--ink-uncertain))",
+    "status-working": "rgb(var(--status-working))",
+    "status-done": "rgb(var(--status-done))",
+    "status-error": "rgb(var(--status-error))"
+  },
   fontFamily: {
-    sans: ["Inter", "Geist", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
-    mono: ["JetBrains Mono", "SF Mono", "ui-monospace", "Menlo", "Consolas", "monospace"]
+    sans: ["var(--font-sans)", "sans-serif"],
+    mono: ["var(--font-mono)", "monospace"]
   }
 }}};
 </script>
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://unpkg.com/lucide@1.47.0/dist/umd/lucide.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body class="text-zinc-200 font-sans antialiased min-h-screen">
+<body class="text-[var(--text-primary)] font-sans antialiased min-h-screen">
 
 <header class="sticky top-0 z-40 border-b border-edge bg-surface/95 backdrop-blur">
   <div class="max-w-7xl mx-auto px-5 h-12 flex items-center gap-3">
     <div class="flex items-center gap-2">
-      <i data-lucide="git-compare-arrows" class="w-4 h-4 text-zinc-100"></i>
-      <span class="font-mono font-bold text-sm tracking-tight text-zinc-100">TraceDiff</span>
+      <i data-lucide="git-compare-arrows" class="w-4 h-4 text-[var(--text-primary)]"></i>
+      <span class="font-mono font-bold text-sm tracking-tight text-[var(--text-primary)]">TraceDiff</span>
     </div>
-    <div class="flex items-center gap-2 font-mono text-[11px] text-zinc-500">
-      <span id="status-dot" class="w-2 h-2 rounded-full bg-zinc-600 inline-block"></span>
+    <div class="flex items-center gap-2 font-mono text-[11px] text-[var(--text-secondary)]">
+      <span id="status-dot" class="w-2 h-2 rounded-full bg-[var(--text-muted)] inline-block"></span>
       <span id="status-text">idle | Step Functions Map-State Engine</span>
     </div>
     <div class="ml-auto flex items-center gap-3">
-      <span class="font-mono text-[11px] text-zinc-600" id="api-source" data-tip="Backend API in use. Override with ?api=https://..."></span>
-      <span class="font-mono text-[11px] text-zinc-600" id="job-id"></span>
+      <span class="font-mono text-[11px] text-[var(--text-muted)]" id="api-source" data-tip="Backend API in use. Override with ?api=https://..."></span>
+      <span class="font-mono text-[11px] text-[var(--text-muted)]" id="job-id"></span>
     </div>
   </div>
 </header>
@@ -42,72 +57,72 @@ tailwind.config = { theme: { extend: {
 
   <section class="pt-10 pb-6 text-center">
     <div class="flex items-center justify-center gap-2 mb-4 flex-wrap">
-      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">Merkle-Tree Pruned</span>
-      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">AWS Step Functions Map-State</span>
-      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-zinc-400">Deterministic Equivalence</span>
+      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-[var(--text-secondary)]">Merkle-Tree Pruned</span>
+      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-[var(--text-secondary)]">AWS Step Functions Map-State</span>
+      <span class="font-mono text-[10px] uppercase tracking-widest px-2.5 py-1 rounded-full border border-edge bg-surface text-[var(--text-secondary)]">Deterministic Equivalence</span>
     </div>
-    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-zinc-100">Distributed Trace Diffing Engine</h1>
-    <p class="mt-4 text-zinc-400 text-base md:text-lg max-w-2xl mx-auto">Sub-second semantic regression analysis using Merkle Tree pruning and equivalence rules. Filter 99% noise, pinpoint the real bugs.</p>
+    <h1 class="text-4xl md:text-5xl font-extrabold tracking-tight text-[var(--text-primary)]">Distributed Trace Diffing Engine</h1>
+    <p class="mt-4 text-[var(--text-secondary)] text-base md:text-lg max-w-2xl mx-auto">Sub-second semantic regression analysis using Merkle Tree pruning and equivalence rules. Filter 99% noise, pinpoint the real bugs.</p>
     <div class="mt-7 flex items-center justify-center gap-3 flex-wrap">
-      <button id="demo-btn" class="inline-flex items-center gap-2 bg-zinc-100 text-zinc-950 font-semibold text-sm px-6 py-3 rounded-lg hover:bg-white transition-colors">
-        <i data-lucide="zap" class="w-4 h-4"></i>
+      <button id="demo-btn" class="inline-flex items-center gap-2 bg-[var(--text-primary)] text-[var(--bg)] font-semibold text-sm px-6 py-3 rounded-lg hover:opacity-90 transition-opacity">
+        <i data-lucide="SquareMousePointer" class="w-4 h-4"></i>
         Load 1-Click Benchmark Demo
       </button>
-      <button id="upload-toggle" class="inline-flex items-center gap-2 border border-edge bg-surface text-zinc-300 font-medium text-sm px-6 py-3 rounded-lg hover:border-zinc-500 transition-colors" aria-pressed="false">
+      <button id="upload-toggle" class="inline-flex items-center gap-2 border border-edge bg-surface text-[var(--text-secondary)] font-medium text-sm px-6 py-3 rounded-lg hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors" aria-pressed="false">
         <i data-lucide="upload" class="w-4 h-4"></i>
         Upload Custom Traces
       </button>
     </div>
-    <div id="demo-meta" class="mt-4 font-mono text-[11px] text-zinc-500 hidden"></div>
+    <div id="demo-meta" class="mt-4 font-mono text-[11px] text-[var(--text-secondary)] hidden"></div>
   </section>
 
   <!-- Inputs + rules + Compare -->
   <section class="border border-edge bg-surface rounded-xl p-4">
     <div class="grid md:grid-cols-2 gap-3" id="upload-panel">
       <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-5 text-center cursor-pointer transition-colors" id="dz-a" tabindex="0" role="button" aria-label="Load baseline trace A">
-        <i data-lucide="file-json" class="w-6 h-6 text-zinc-500 mx-auto mb-2"></i>
-        <h2 class="text-sm font-semibold text-zinc-200">Baseline Trace (Trace A)</h2>
-        <p class="text-xs text-zinc-500 mt-1">Drag and drop or click to browse JSON</p>
-        <div class="font-mono text-[11px] text-zinc-500 mt-2" id="meta-a">no file loaded</div>
+        <i data-lucide="file-json" class="w-6 h-6 text-[var(--text-muted)] mx-auto mb-2"></i>
+        <h2 class="text-sm font-semibold text-[var(--text-primary)]">Baseline Trace (Trace A)</h2>
+        <p class="text-xs text-[var(--text-muted)] mt-1">Drag and drop or click to browse JSON</p>
+        <div class="font-mono text-[11px] text-[var(--text-secondary)] mt-2" id="meta-a">no file loaded</div>
         <input type="file" id="file-a" accept="application/json,.json" hidden>
       </div>
       <div class="dropzone border border-dashed border-edge bg-surface rounded-xl p-5 text-center cursor-pointer transition-colors" id="dz-b" tabindex="0" role="button" aria-label="Load target trace B">
-        <i data-lucide="file-json-2" class="w-6 h-6 text-zinc-500 mx-auto mb-2"></i>
-        <h2 class="text-sm font-semibold text-zinc-200">Target Trace (Trace B)</h2>
-        <p class="text-xs text-zinc-500 mt-1">Drag and drop or click to browse JSON</p>
-        <div class="font-mono text-[11px] text-zinc-500 mt-2" id="meta-b">no file loaded</div>
+        <i data-lucide="file-json-2" class="w-6 h-6 text-[var(--text-muted)] mx-auto mb-2"></i>
+        <h2 class="text-sm font-semibold text-[var(--text-primary)]">Target Trace (Trace B)</h2>
+        <p class="text-xs text-[var(--text-muted)] mt-1">Drag and drop or click to browse JSON</p>
+        <div class="font-mono text-[11px] text-[var(--text-secondary)] mt-2" id="meta-b">no file loaded</div>
         <input type="file" id="file-b" accept="application/json,.json" hidden>
       </div>
     </div>
 
     <div class="mt-3 flex items-center gap-2 flex-wrap">
-      <span class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mr-1 inline-flex items-center gap-1.5">
+      <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] mr-1 inline-flex items-center gap-1.5">
         <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>equivalence rules
       </span>
       <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="ignore-timestamps" aria-pressed="true" data-tip="Suppresses timestamp jitter and clock skew">ignore-timestamps</button>
       <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="canonicalize-ids" aria-pressed="true" data-tip="Suppresses UUID and GUID rotation">canonicalize-ids</button>
       <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="numeric-tolerance" aria-pressed="true" data-tip="Suppresses floating-point and duration drift">numeric-tolerance</button>
       <button class="rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors" data-rule="sort-concurrent" aria-pressed="true" data-tip="Suppresses async child-span interleaving">sort-concurrent</button>
-      <label class="font-mono text-[11px] text-zinc-500 inline-flex items-center gap-1.5 ml-1" data-tip="Relative numeric tolerance, e.g. 0.05 = ±5%">
-        ±<input id="tolerance-input" type="number" min="0" max="1" step="0.01" value="0.05" class="w-16 bg-surface2 border border-edge rounded-md px-1.5 py-1 text-zinc-200 font-mono text-[11px]">
+      <label class="font-mono text-[11px] text-[var(--text-secondary)] inline-flex items-center gap-1.5 ml-1" data-tip="Relative numeric tolerance, e.g. 0.05 = ±5%">
+        ±<input id="tolerance-input" type="number" min="0" max="1" step="0.01" value="0.05" class="w-16 bg-surface2 border border-edge rounded-md px-1.5 py-1 text-[var(--text-primary)] font-mono text-[11px] focus:outline-none focus:border-[var(--border-strong)]">
       </label>
-      <label class="font-mono text-[11px] text-zinc-500 inline-flex items-center gap-1.5" data-tip="Extra attribute keys to ignore, comma-separated">
-        ignore:<input id="ignore-fields-input" type="text" placeholder="request_id, trace_id" class="w-44 bg-surface2 border border-edge rounded-md px-1.5 py-1 text-zinc-200 font-mono text-[11px]">
+      <label class="font-mono text-[11px] text-[var(--text-secondary)] inline-flex items-center gap-1.5" data-tip="Extra attribute keys to ignore, comma-separated">
+        ignore:<input id="ignore-fields-input" type="text" placeholder="request_id, trace_id" class="w-44 bg-surface2 border border-edge rounded-md px-1.5 py-1 text-[var(--text-primary)] font-mono text-[11px] focus:outline-none focus:border-[var(--border-strong)]">
       </label>
     </div>
 
     <div class="mt-3 flex items-center gap-3">
-      <button id="run-btn" disabled class="inline-flex items-center gap-2 bg-zinc-100 text-zinc-950 font-mono font-bold text-[13px] px-5 py-2.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:bg-white transition-colors">
+      <button id="run-btn" disabled class="inline-flex items-center gap-2 bg-[var(--text-primary)] text-[var(--bg)] font-mono font-bold text-[13px] px-5 py-2.5 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed hover:opacity-90 transition-opacity">
         <i data-lucide="play" class="w-4 h-4"></i>[ Compare Traces ]
       </button>
-      <button id="reset-btn" class="font-mono text-xs text-zinc-500 border border-edge rounded-lg px-4 py-2.5 hover:text-zinc-300 hover:border-zinc-500 transition-colors">Reset</button>
+      <button id="reset-btn" class="font-mono text-xs text-[var(--text-secondary)] border border-edge rounded-lg px-4 py-2.5 hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-colors">Reset</button>
     </div>
   </section>
 
   <section id="pipeline" class="hidden mt-4 border border-edge bg-surface rounded-xl p-4">
-    <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mb-3 flex items-center gap-2">
+    <div class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-3 flex items-center gap-2">
       <i data-lucide="activity" class="w-3.5 h-3.5"></i>live execution pipeline
-      <span id="pipe-job" class="ml-auto normal-case tracking-normal"></span>
+      <span id="pipe-job" class="ml-auto normal-case tracking-normal text-[var(--text-secondary)]"></span>
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-2" id="pipe-stages"></div>
   </section>
@@ -116,21 +131,21 @@ tailwind.config = { theme: { extend: {
   <section id="kpis" class="hidden mt-4 border border-edge bg-surface rounded-xl px-5 py-4">
     <div class="flex items-end gap-6 flex-wrap">
       <div>
-        <div class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 flex items-center gap-1.5">
+        <div class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-1.5">
           <i data-lucide="scissors" class="w-3.5 h-3.5"></i>Merkle skipped
         </div>
-        <div class="font-mono text-4xl font-bold mt-1 text-emerald-400" id="k-skip">--</div>
-        <div class="font-mono text-[11px] text-zinc-500 mt-0.5" id="k-skip-sub">--</div>
+        <div class="font-mono text-4xl font-bold mt-1 text-[rgb(var(--ink-added))]" id="k-skip">--</div>
+        <div class="font-mono text-[11px] text-[var(--text-secondary)] mt-0.5" id="k-skip-sub">--</div>
       </div>
       <div class="flex items-center gap-2 pb-1" role="group" aria-label="Diff counts by significance">
-        <span class="font-mono text-[10px] uppercase tracking-widest text-zinc-500 mr-1">diffs</span>
-        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-rose-500 text-rose-400" id="k-sem" data-tip="Semantic regressions — behavior actually changed">--</span>
-        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-purple-500 text-purple-400" id="k-unc" data-tip="Uncertain — not fully explored, needs judgment">--</span>
-        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-amber-700 text-amber-400" id="k-noise" data-tip="Noise — judged safe by an equivalence rule">--</span>
+        <span class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] mr-1">diffs</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-[rgb(var(--ink-semantic))] text-[rgb(var(--ink-semantic))] bg-[rgb(var(--ink-semantic)_/_0.12)]" id="k-sem" data-tip="Semantic regressions — behavior actually changed">--</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-dashed border-[rgb(var(--ink-uncertain))] text-[rgb(var(--ink-uncertain))]" id="k-unc" data-tip="Uncertain — not fully explored, needs judgment">--</span>
+        <span class="font-mono text-sm font-bold px-2.5 py-1 rounded-md border border-[rgb(var(--ink-noise))] text-[rgb(var(--ink-noise))] bg-[rgb(var(--ink-noise)_/_0.12)]" id="k-noise" data-tip="Noise — judged safe by an equivalence rule">--</span>
       </div>
       <div class="ml-auto text-right pb-1">
-        <div class="font-mono text-[11px] text-zinc-500" id="k-nodes">--</div>
-        <div class="font-mono text-[11px] text-zinc-600" id="k-time">--</div>
+        <div class="font-mono text-[11px] text-[var(--text-secondary)]" id="k-nodes">--</div>
+        <div class="font-mono text-[11px] text-[var(--text-muted)]" id="k-time">--</div>
       </div>
     </div>
   </section>
@@ -138,47 +153,47 @@ tailwind.config = { theme: { extend: {
   <!-- Tree toolbar: search + grouping + significance filter -->
   <section id="tree-toolbar" class="hidden mt-4 flex items-center gap-2 flex-wrap">
     <div class="relative">
-      <i data-lucide="search" class="w-3.5 h-3.5 text-zinc-600 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+      <i data-lucide="search" class="w-3.5 h-3.5 text-[var(--text-muted)] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
       <input id="tree-search" type="text" placeholder="Search spans, services, descriptions…" aria-label="Search diff tree"
-        class="bg-surface border border-edge rounded-lg pl-8 pr-3 py-2 font-mono text-xs text-zinc-200 w-64 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-500">
+        class="bg-surface border border-edge rounded-lg pl-8 pr-3 py-2 font-mono text-xs text-[var(--text-primary)] w-64 placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)]">
     </div>
     <select id="group-select" aria-label="Group flat spans by"
-      class="bg-surface border border-edge rounded-lg px-3 py-2 font-mono text-xs text-zinc-300 focus:outline-none focus:border-zinc-500">
+      class="bg-surface border border-edge rounded-lg px-3 py-2 font-mono text-xs text-[var(--text-secondary)] focus:outline-none focus:border-[var(--border-strong)]">
       <option value="none">Group: none (trace order)</option>
       <option value="service">Group: by service</option>
       <option value="type">Group: by span type</option>
     </select>
     <div class="flex items-center gap-1.5 ml-1" role="group" aria-label="Toggle significance classes">
-      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-orange-700 text-orange-400" data-sig="semantic" aria-pressed="true">~ semantic</button>
-      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-purple-700 text-purple-400" data-sig="uncertain" aria-pressed="true">? uncertain</button>
-      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-amber-800 text-amber-500" data-sig="noise" aria-pressed="true">≈ noise</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-[rgb(var(--ink-semantic))] text-[rgb(var(--ink-semantic))]" data-sig="semantic" aria-pressed="true">~ semantic</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-dashed border-[rgb(var(--ink-uncertain))] text-[rgb(var(--ink-uncertain))]" data-sig="uncertain" aria-pressed="true">? uncertain</button>
+      <button class="seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border border-[rgb(var(--ink-noise))] text-[rgb(var(--ink-noise))]" data-sig="noise" aria-pressed="true">≈ noise</button>
     </div>
     <div class="flex items-center gap-1.5 ml-1" role="group" aria-label="Expand or collapse all tree regions">
-      <button id="expand-all-btn" class="font-mono text-[11px] px-3 py-1.5 rounded-md border border-edge text-zinc-300 hover:border-zinc-500 transition-colors" data-tip="Open every collapsed region">Expand all</button>
-      <button id="collapse-all-btn" class="font-mono text-[11px] px-3 py-1.5 rounded-md border border-edge text-zinc-300 hover:border-zinc-500 transition-colors" data-tip="Shut every collapsible region">Collapse all</button>
+      <button id="expand-all-btn" class="font-mono text-[11px] px-3 py-1.5 rounded-md border border-edge text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors" data-tip="Open every collapsed region">Expand all</button>
+      <button id="collapse-all-btn" class="font-mono text-[11px] px-3 py-1.5 rounded-md border border-edge text-[var(--text-secondary)] hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors" data-tip="Shut every collapsible region">Collapse all</button>
     </div>
-    <span class="font-mono text-[11px] text-zinc-600 ml-auto" id="tree-count"></span>
+    <span class="font-mono text-[11px] text-[var(--text-muted)] ml-auto" id="tree-count"></span>
   </section>
 
   <!-- Unified tree + detail panel -->
   <section id="tree-section" class="hidden mt-3 grid gap-3 lg:grid-cols-[1fr_380px]">
     <div class="border border-edge bg-surface rounded-xl overflow-hidden min-w-0">
-      <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+      <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
         <i data-lucide="network" class="w-3.5 h-3.5"></i>
         <span>Unified diff tree</span>
         <span class="ml-auto flex items-center gap-3 normal-case tracking-normal">
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-zinc-600 inline-block"></span>unchanged</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>noise</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>added</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500 inline-block"></span>removed</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-orange-500 inline-block"></span>semantic</span>
-          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-dashed border-purple-400 inline-block"></span>uncertain</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[var(--text-muted)] inline-block"></span>unchanged</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[rgb(var(--ink-noise))] inline-block"></span>noise</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[rgb(var(--ink-added))] inline-block"></span>added</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-[rgb(var(--ink-removed))] inline-block"></span>removed</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[rgb(var(--ink-semantic))] inline-block"></span>semantic</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full border border-dashed border-[rgb(var(--ink-uncertain))] inline-block"></span>uncertain</span>
         </span>
       </div>
       <div id="tree" class="p-2 font-mono text-xs max-h-[640px] overflow-auto"></div>
     </div>
     <aside class="border border-edge bg-surface rounded-xl overflow-hidden lg:sticky lg:top-16 self-start lg:max-h-[640px] lg:overflow-auto" aria-label="Diff detail">
-      <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+      <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
         <i data-lucide="scan-search" class="w-3.5 h-3.5"></i>
         <span>Detail</span>
       </div>
@@ -186,14 +201,14 @@ tailwind.config = { theme: { extend: {
     </aside>
   </section>
 
-  <footer class="mt-10 font-mono text-[10px] text-zinc-600 text-center">
+  <footer class="mt-10 font-mono text-[10px] text-[var(--text-muted)] text-center">
     TraceDiff frontend-v2 | every value from the live backend or your files — no mock diffs | <span id="api-url"></span>
   </footer>
 
-  <div id="toast-wrap" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-50">
-    <div class="flex items-start gap-2 bg-surface2 border border-rose-800 rounded-lg px-4 py-3 max-w-lg shadow-2xl">
-      <i data-lucide="triangle-alert" class="w-4 h-4 text-rose-500 mt-0.5 shrink-0"></i>
-      <div class="font-mono text-[11px] text-rose-200 whitespace-pre-wrap break-words" id="toast-text"></div>
+  <div id="toast-wrap" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[var(--z-toast)]">
+    <div class="flex items-start gap-2 bg-surface2 border border-[rgb(var(--status-error))] rounded-lg px-4 py-3 max-w-lg shadow-2xl">
+      <i data-lucide="triangle-alert" class="w-4 h-4 text-[rgb(var(--status-error))] mt-0.5 shrink-0"></i>
+      <div class="font-mono text-[11px] text-[var(--text-primary)] whitespace-pre-wrap break-words" id="toast-text"></div>
     </div>
   </div>
 </main>

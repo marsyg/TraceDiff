@@ -14,16 +14,16 @@ function renderPipeline() {
   var html = "";
   STAGES.forEach(function (s) {
     var st = stageState[s.key] || "idle";
-    var border = st === "done" ? "border-emerald-800" : st === "active" ? "stage-active" : "border-edge";
+    var border = st === "done" ? "border-[rgb(var(--status-done))]" : st === "active" ? "stage-active" : "border-edge";
     var badge = st === "done"
-      ? '<span class="w-4 h-4 rounded-full bg-emerald-500 glow-emerald inline-block"></span>'
+      ? '<span class="w-4 h-4 rounded-full bg-[rgb(var(--status-done))] glow-emerald inline-block"></span>'
       : st === "active"
-        ? '<span class="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent spinner inline-block"></span>'
-        : '<span class="w-4 h-4 rounded-full border border-zinc-700 inline-block"></span>';
+        ? '<span class="w-4 h-4 rounded-full border-2 border-[rgb(var(--status-working))] border-t-transparent spinner inline-block"></span>'
+        : '<span class="w-4 h-4 rounded-full border border-[var(--border)] inline-block"></span>';
     html += '<div class="border rounded-lg px-3 py-2.5 bg-surface2 flex items-center gap-2.5 ' + border + '">'
       + badge
-      + '<div><div class="font-mono text-[11px] font-semibold ' + (st === "idle" ? "text-zinc-600" : "text-zinc-200") + '">' + s.label + "</div>"
-      + '<div class="font-mono text-[10px] text-zinc-600">' + (st === "done" ? "complete" : st === "active" ? "running..." : "pending") + "</div></div></div>";
+      + '<div><div class="font-mono text-[11px] font-semibold ' + (st === "idle" ? "text-[var(--text-muted)]" : "text-[var(--text-primary)]") + '">' + s.label + "</div>"
+      + '<div class="font-mono text-[10px] text-[var(--text-muted)]">' + (st === "done" ? "complete" : st === "active" ? "running..." : "pending") + "</div></div></div>";
   });
   el("pipe-stages").innerHTML = html;
   icons();
@@ -97,11 +97,11 @@ function ingestRecord(slot, rec) {
     rec.valid = true;
     el(slot === "A" ? "meta-a" : "meta-b").textContent =
       rec.nodeCount.toLocaleString() + " spans | " + fmtBytes(rec.size) + " | " + rec.name;
-    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "#059669";
+    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "rgb(var(--status-done))";
   } catch (e) {
     rec.valid = false;
     el(slot === "A" ? "meta-a" : "meta-b").textContent = "INVALID: " + (e instanceof Error ? e.message : String(e));
-    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "#e11d48";
+    el(slot === "A" ? "dz-a" : "dz-b").style.borderColor = "rgb(var(--status-error))";
   }
   if (slot === "A") state.fileA = rec; else state.fileB = rec;
   updateRunBtn();
@@ -209,7 +209,7 @@ function paintRuleButtons() {
   document.querySelectorAll(".rule-btn").forEach(function (b) {
     var on = b.getAttribute("aria-pressed") === "true";
     b.className = "rule-btn font-mono text-[11px] px-2.5 py-1 rounded-md border transition-colors " +
-      (on ? "border-zinc-500 bg-surface2 text-zinc-100" : "border-edge bg-surface text-zinc-600 line-through");
+      (on ? "border-[var(--border-strong)] bg-surface2 text-[var(--text-primary)]" : "border-edge bg-surface text-[var(--text-muted)] line-through");
   });
 }
 

@@ -1,0 +1,219 @@
+/* TraceDiff design tokens — PRECISION edition, LIGHT theme.
+
+   Same token names as every previous edition. Components reference
+   tokens, never raw values, so this file is a drop-in replacement.
+
+   Design intent: an instrument panel for people hunting a handful of
+   real regressions inside thousands of noisy spans. Chrome stays
+   neutral and quiet; the five diff inks carry all of the color. */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Surfaces: cool-neutral paper, hairline edges ---- */
+  --bg: #f4f3ef;
+  --surface: #fbfaf7;
+  --surface-raised: #ebe9e2;
+  --border: #dcd9d0;
+  --border-strong: #b4afa2;
+
+  /* ---- Text. Contrast quoted against --bg. ---- */
+  --text-primary: #1c1b19;   /* ~16:1 */
+  --text-secondary: #57544c; /* ~7:1  — body-copy minimum */
+  --text-muted: #6f6a62;     /* ~4.9:1 — labels and metadata only */
+
+  /* ---- Ink: five diff states, all AA on --bg and --surface.
+     The state is encoded twice — by hue AND by stroke shape — so it
+     survives color-blindness and grayscale printing:
+       noise      solid fill    ochre      #825e06
+       added      solid fill    moss       #4d6b1a
+       removed    outline only  terracotta #a34a22
+       semantic   solid+underline oxblood  #a3201a
+       uncertain  dashed only   plum       #75467a
+     Never a sixth. ---- */
+  --ink-noise: 130 94 6;
+  --ink-added: 77 107 26;
+  --ink-removed: 163 74 34;
+  --ink-semantic: 163 32 26;
+  --ink-uncertain: 117 70 122;
+
+  --status-working: var(--ink-noise);
+  --status-done: var(--ink-added);
+  --status-error: var(--ink-semantic);
+
+  /* ---- Interactive chrome ---- */
+  --hover-overlay: rgba(28, 27, 25, 0.045);
+  --selected-bar: var(--text-primary);
+  --focus-ring: #2d5bd6;
+
+  /* ---- Shape primitives ---- */
+  --px: 1px;
+
+  /* ---- Motion: short, eased, and only in response to action ---- */
+  --dur-fast: 120ms;
+  --dur-med: 200ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --pulse-period: 1.6s;
+  --spin-period: 0.9s;
+
+  /* ---- Stacking ---- */
+  --z-sticky: 40;
+  --z-toast: 50;
+  --z-tooltip: 50;
+
+  /* ---- Layout ---- */
+  --max-content: 80rem;
+  --detail-w: 380px;
+  --tree-max-h: 640px;
+  --tree-indent: 16px;
+  --tree-base: 8px;
+
+  /* ---- Type ----
+     IBM Plex Sans for interface; IBM Plex Mono for anything an
+     engineer might copy — span names, IDs, values. */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-display: var(--font-sans);
+
+  /* Interface scale — dense, tool-appropriate */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-lg: 18px;
+  --text-xl: 44px; /* reserved: skipPercentage hero number only */
+
+  /* Display scale */
+  --display-sm: 12px;
+  --display-md: 14px;
+  --display-lg: 18px;
+  --display-xl: 40px;
+
+  --leading-tight: 1.25;
+  --leading-body: 1.5;
+  --leading-display: 1.1;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+
+  /* ---- Spacing: 4px base ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- Radius: small and tiered by role, not one value everywhere ---- */
+  --radius: 4px;          /* data rows, inline chips */
+  --radius-ctl: 6px;      /* buttons, inputs */
+  --radius-panel: 10px;   /* panels */
+  --radius-pill: 999px;
+  --clip-notch: none;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-regular);
+  font-style: normal;
+  letter-spacing: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Headings: same family as body, distinguished by weight and size */
+h1, h2, h3, .pixel-display {
+  font-family: var(--font-display);
+  font-size: var(--display-md);
+  font-style: normal;
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-display);
+  letter-spacing: -0.01em;
+}
+h1 { font-size: var(--display-xl); letter-spacing: -0.03em; }
+h3 { font-size: var(--display-sm); }
+
+/* Only use the weights we actually load (400 / 500) */
+strong, b { font-weight: var(--weight-medium); color: var(--text-primary); }
+em, i { font-style: normal; }
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.trace-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+/* Diff-state utilities. Shape is meaning:
+   removed = outline no fill, uncertain = dashed no fill. */
+.state-noise {
+  color: rgb(var(--ink-noise));
+  background: rgb(var(--ink-noise) / 0.12);
+  border-radius: var(--radius);
+}
+.state-added {
+  color: rgb(var(--ink-added));
+  background: rgb(var(--ink-added) / 0.12);
+  border-radius: var(--radius);
+}
+.state-removed {
+  color: rgb(var(--ink-removed));
+  background: transparent;
+  border: 1px solid rgb(var(--ink-removed));
+  border-radius: var(--radius);
+}
+.state-semantic {
+  color: rgb(var(--ink-semantic));
+  background: rgb(var(--ink-semantic) / 0.1);
+  border-radius: var(--radius);
+  font-weight: var(--weight-medium);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.state-uncertain {
+  color: rgb(var(--ink-uncertain));
+  background: transparent;
+  border: 1px dashed rgb(var(--ink-uncertain));
+  border-radius: var(--radius);
+}
+
+/* A state badge is one unit: never break inside it */
+.state-noise, .state-added, .state-removed, .state-semantic, .state-uncertain {
+  white-space: nowrap;
+  display: inline-block;
+  line-height: var(--leading-tight);
+}
+
+.collapsed-region {
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  line-height: var(--leading-tight);
+  padding: var(--space-2) 0;
+  text-align: center;
+  cursor: pointer;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; }
+}
