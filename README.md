@@ -77,49 +77,66 @@ Run it yourself: `bun run bench` (add `--include-huge` for the 1M-node cell).
 
 ## Architecture
 
-High level only — full derivation, diagrams, and complexity proofs live
-in the docs linked below.
+> *"Under the hood, equal fingerprints mean equal subtrees. Diff cost scales with the size of the change, not the size of the trace."*
 
-**Diffing engine**
-- Each trace becomes a tree; every node gets two SHA-256 hashes — one
-  from raw content, one from content normalized by pluggable rules
-  (timestamps, IDs, jitter tolerance)
-- Matching hashes mean a subtree is safely skipped; only true divergence
-  gets walked, so cost scales with the size of the diff, not the trace
-- Every diff that survives gets classified — semantic, noise, or
-  uncertain — never just "different"
+We construct a **Merkle tree per trace** to prune identical branches immediately in $O(1)$, walking only the true divergences. TraceDiff is fully implemented across **two complementary workflows**: a **local developer CLI** for instant diffs and CI regression gating, and a **live web application deployed on AWS** using Lambda, Step Functions, S3, and DynamoDB to handle massive distributed traces.
+
+### 1. Merkle Pruning Engine (Equal Fingerprints = Equal Subtrees)
+
+- Each trace is normalized by pluggable equivalence rules (suppressing timestamp jitter, UUID rotation, and float drift) and transformed into a Merkle tree.
+- Every node carries dual SHA-256 digests (raw byte digest + normalized semantic digest).
+- **Equal fingerprints mean equal subtrees**: matching hashes are pruned immediately in $O(1)$ without descending.
+- The diff walk only explores true divergences — diff cost scales with the size of the change ($O(D \log N)$), never the size of the trace ($N$).
+- Surviving divergences are classified into **Semantic**, **Noise**, or **Uncertain**.
 
 ```mermaid
-flowchart LR
-    A[Trace A] --> H1["Merkle hash<br/>(raw + normalized)"]
-    B[Trace B] --> H2["Merkle hash<br/>(raw + normalized)"]
-    H1 --> C{Hashes match?}
-    H2 --> C
-    C -->|yes| S[Skip subtree]
-    C -->|no| W[Walk deeper]
-    W --> R["Classify:<br/>semantic / noise / uncertain"]
+flowchart TD
+    subgraph MerkleBuild["1. Merkle Tree Construction"]
+        TA["Trace A (Baseline)"] --> MA["Merkle Tree A<br/>• Raw Hash (byte digest)<br/>• Normalized Hash (rule-normalized)"]
+        TB["Trace B (Target)"] --> MB["Merkle Tree B<br/>• Raw Hash (byte digest)<br/>• Normalized Hash (rule-normalized)"]
+    end
+
+    MA --> CMP{"Equal Fingerprints?<br/>(Hashes match?)"}
+    MB --> CMP
+
+    CMP -->|"Yes (Equal subtrees)"| PRUNE["⚡ Prune Branch Immediately (O(1))<br/>Skip identical subtrees without traversal"]
+    CMP -->|"No (Divergence)"| WALK["Walk Diverging Subtrees<br/>Cost scales with size of change O(D log N),<br/>NOT size of trace N"]
+
+    WALK --> CLASSIFY["Classify Divergence<br/>• Semantic: Behavioral regression<br/>• Noise: Safe jitter / rotated IDs<br/>• Uncertain: Tolerance threshold exceeded"]
 ```
 
-**AWS deployment**
-- Traces upload directly to S3 via presigned URLs, bypassing API
-  Gateway's payload limit
-- API Gateway triggers Step Functions, which fans a large trace out
-  across parallel Lambda workers (Map state) to build and diff it
-- Results land in DynamoDB, paginated for the frontend, so a
-  million-node result never has to load into the browser at once
+### 2. Two Implemented Workflows (Local CLI & AWS Cloud Architecture)
+
+TraceDiff's engine powers two unified production workflows:
 
 ```mermaid
-flowchart LR
-    U[Trace upload] -->|presigned URL| S3[(S3)]
-    S3 --> AG[API Gateway]
-    AG --> SF[Step Functions]
-    SF -->|Map state| L1[Lambda worker]
-    SF -->|Map state| L2[Lambda worker]
-    SF -->|Map state| L3[Lambda worker]
-    L1 --> DB[(DynamoDB)]
-    L2 --> DB
-    L3 --> DB
-    DB --> FE["Frontend<br/>(paginated results)"]
+flowchart TD
+    subgraph CoreEngine["Core Merkle Diff Engine"]
+        CORE["Merkle Diff Walk & Normalization Rules<br/>(Prunes identical branches in O(1) · Classifies Semantic / Noise / Uncertain)"]
+    end
+
+    subgraph WF1["Workflow 1: Local Developer CLI"]
+        DEV["Developer / CI Pipeline"] -->|"bun run src/cli/main.ts"| CLI["Local CLI Engine"]
+        CLI --> CORE
+        CORE -->|"Instant diff"| TERM["Terminal Output<br/>(Colored diff & KPIs)"]
+        CORE -->|"Repro bundle"| REPRO["Standalone Repro Artifacts<br/>(repro.sh cURL & Vitest)"]
+        CORE -->|"Shareable report"| HTML["Interactive HTML Report<br/>(--html-out report.html)"]
+    end
+
+    subgraph WF2["Workflow 2: Live AWS Cloud Web App (Massive Traces)"]
+        USER["Browser Web Visualizer<br/>(marsyg.github.io/TraceDiff)"] -->|"1. Direct S3 presigned upload"| S3[("Amazon S3<br/>(Bypasses API Gateway limits)")]
+        USER -->|"2. POST /jobs"| AGW["API Gateway"]
+        AGW --> SFN["AWS Step Functions<br/>(Map-State Concurrency)"]
+        S3 --> SFN
+        SFN --> L1["DiffWorker Lambda 1"]
+        SFN --> L2["DiffWorker Lambda 2"]
+        SFN --> LN["DiffWorker Lambda ..."]
+        L1 & L2 & LN --> CORE
+        L1 & L2 & LN -->|"Batch write diffs"| DBR[("DynamoDB Results Table<br/>(Paginated divergences)")]
+        SFN --> LAGGR["Aggregate Lambda<br/>+ FinOps Cost Model"]
+        LAGGR --> DBJ[("DynamoDB Jobs Table<br/>(Job state & summary)")]
+        DBJ & DBR -->|"Paginated diff tree & FinOps"| USER
+    end
 ```
 
 Both diagrams above are deliberately high level — step-by-step walkthroughs,
