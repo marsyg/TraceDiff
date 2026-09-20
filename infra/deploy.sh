@@ -18,5 +18,10 @@ bun run build
 echo "=== [2/3] Building SAM application ==="
 sam build --template infra/template.yaml
 
-echo "=== [3/3] Deploying CloudFormation stack ==="
+echo "=== [3/4] Deploying CloudFormation stack ==="
 sam deploy --guided
+
+echo "=== [4/4] Syncing frontend to S3 & invalidating CloudFront ==="
+aws s3 sync frontend/ s3://tracediff-web-140023404870-dev/ --delete
+aws cloudfront create-invalidation --distribution-id E1574K2273MQ8K --paths "/*"
+
