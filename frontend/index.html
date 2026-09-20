@@ -4,6 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TraceDiff - Distributed Trace Diffing Engine</title>
+<script>
+(function() {
+  try {
+    var stored = localStorage.getItem('tracediff-theme');
+    var theme = stored || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {}
+})();
+</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
 tailwind.config = { theme: { extend: {
@@ -13,28 +22,30 @@ tailwind.config = { theme: { extend: {
     surface2: "var(--surface-raised)",
     edge: "var(--border)",
     "edge-strong": "var(--border-strong)",
-    "ink-noise": "rgb(var(--ink-noise))",
-    "ink-added": "rgb(var(--ink-added))",
-    "ink-removed": "rgb(var(--ink-removed))",
-    "ink-semantic": "rgb(var(--ink-semantic))",
-    "ink-uncertain": "rgb(var(--ink-uncertain))",
-    "status-working": "rgb(var(--status-working))",
-    "status-done": "rgb(var(--status-done))",
-    "status-error": "rgb(var(--status-error))"
+    "ink-noise": "var(--ink-noise)",
+    "ink-added": "var(--ink-added)",
+    "ink-removed": "var(--ink-removed)",
+    "ink-semantic": "var(--ink-semantic)",
+    "ink-uncertain": "var(--ink-uncertain)",
+    "status-working": "var(--status-working)",
+    "status-done": "var(--status-done)",
+    "status-error": "var(--status-error)"
   },
   fontFamily: {
-    sans: ["var(--font-sans)", "sans-serif"],
+    display: ["var(--font-display)", "monospace"],
+    sans: ["var(--font-sans)", "monospace"],
     mono: ["var(--font-mono)", "monospace"]
   }
 }}};
 </script>
 <script src="https://unpkg.com/lucide@1.47.0/dist/umd/lucide.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body class="text-[var(--text-primary)] font-sans antialiased min-h-screen">
+<body class="text-[var(--text-primary)] font-sans min-h-screen">
 
 <header class="sticky top-0 z-40 border-b border-edge bg-surface/95 backdrop-blur">
   <div class="max-w-7xl mx-auto px-5 h-12 flex items-center gap-3">
@@ -49,6 +60,10 @@ tailwind.config = { theme: { extend: {
     <div class="ml-auto flex items-center gap-3">
       <span class="font-mono text-[11px] text-[var(--text-muted)]" id="api-source" data-tip="Backend API in use. Override with ?api=https://..."></span>
       <span class="font-mono text-[11px] text-[var(--text-muted)]" id="job-id"></span>
+      <button id="theme-toggle" class="font-mono text-xs text-[var(--text-secondary)] border border-edge bg-surface2/60 hover:bg-surface2 rounded-lg px-2.5 py-1 hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] transition-colors inline-flex items-center gap-1.5 cursor-pointer" aria-label="Toggle color theme" data-tip="Toggle color theme (Light / Dark)">
+        <span id="theme-icon-wrap" class="inline-flex items-center"><i data-lucide="moon" class="w-3.5 h-3.5"></i></span>
+        <span id="theme-label" class="text-[11px]">Dark</span>
+      </button>
     </div>
   </div>
 </header>
@@ -65,7 +80,7 @@ tailwind.config = { theme: { extend: {
     <p class="mt-4 text-[var(--text-secondary)] text-base md:text-lg max-w-2xl mx-auto">Sub-second semantic regression analysis using Merkle Tree pruning and equivalence rules. Filter 99% noise, pinpoint the real bugs.</p>
     <div class="mt-7 flex items-center justify-center gap-3 flex-wrap">
       <button id="demo-btn" class="inline-flex items-center gap-2 bg-[var(--text-primary)] text-[var(--bg)] font-semibold text-sm px-6 py-3 rounded-lg hover:opacity-90 transition-opacity">
-        <i data-lucide="SquareMousePointer" class="w-4 h-4"></i>
+        <i data-lucide="arrow-big-down-dash" class="w-4 h-4"></i>
         Load 1-Click Benchmark Demo
       </button>
       <button id="upload-toggle" class="inline-flex items-center gap-2 border border-edge bg-surface text-[var(--text-secondary)] font-medium text-sm px-6 py-3 rounded-lg hover:border-[var(--border-strong)] hover:text-[var(--text-primary)] transition-colors" aria-pressed="false">
@@ -120,7 +135,7 @@ tailwind.config = { theme: { extend: {
   </section>
 
   <section id="pipeline" class="hidden mt-4 border border-edge bg-surface rounded-xl p-4">
-    <div class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] mb-3 flex items-center gap-2">
+    <div class="font-mono text-[12px] uppercase tracking-widest text-[var(--text-muted)] mb-3 flex items-center gap-2">
       <i data-lucide="activity" class="w-3.5 h-3.5"></i>live execution pipeline
       <span id="pipe-job" class="ml-auto normal-case tracking-normal text-[var(--text-secondary)]"></span>
     </div>
@@ -178,7 +193,7 @@ tailwind.config = { theme: { extend: {
   <!-- Unified tree + detail panel -->
   <section id="tree-section" class="hidden mt-3 grid gap-3 lg:grid-cols-[1fr_380px]">
     <div class="border border-edge bg-surface rounded-xl overflow-hidden min-w-0">
-      <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+      <div class="px-4 py-2.5 border-b border-edge font-mono text-[8px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
         <i data-lucide="network" class="w-3.5 h-3.5"></i>
         <span>Unified diff tree</span>
         <span class="ml-auto flex items-center gap-3 normal-case tracking-normal">
@@ -194,7 +209,7 @@ tailwind.config = { theme: { extend: {
     </div>
     <aside class="border border-edge bg-surface rounded-xl overflow-hidden lg:sticky lg:top-16 self-start lg:max-h-[640px] lg:overflow-auto" aria-label="Diff detail">
       <div class="px-4 py-2.5 border-b border-edge font-mono text-[11px] uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
-        <i data-lucide="scan-search" class="w-3.5 h-3.5"></i>
+        <i data-lucide="scan-search" class="w-4 h-4"></i>
         <span>Detail</span>
       </div>
       <div id="detail-body" class="p-4"></div>
@@ -205,7 +220,7 @@ tailwind.config = { theme: { extend: {
     TraceDiff frontend-v2 | every value from the live backend or your files — no mock diffs | <span id="api-url"></span>
   </footer>
 
-  <div id="toast-wrap" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[var(--z-toast)]">
+  <div id="toast-wrap" class="hidden fixed bottom-5 inset-x-0 z-[var(--z-toast)] flex justify-center px-4">
     <div class="flex items-start gap-2 bg-surface2 border border-[rgb(var(--status-error))] rounded-lg px-4 py-3 max-w-lg shadow-2xl">
       <i data-lucide="triangle-alert" class="w-4 h-4 text-[rgb(var(--status-error))] mt-0.5 shrink-0"></i>
       <div class="font-mono text-[11px] text-[var(--text-primary)] whitespace-pre-wrap break-words" id="toast-text"></div>
