@@ -1,0 +1,58 @@
+{
+  "generator": {
+    "size": 1000,
+    "diffs": 5,
+    "seed": 42,
+    "generatedAt": "2026-09-20T16:23:52.746Z"
+  },
+  "summary": {
+    "totalNodesTraceA": 1000,
+    "totalNodesTraceB": 1002,
+    "semanticDiffsCount": 5,
+    "noiseDiffsCount": 1297
+  },
+  "semantic": [
+    {
+      "type": "modified",
+      "path": "POST /api/v1/checkout/payment_process/pg_tx_commit/redis_cache_lookup",
+      "nodeId": "call-database-00056",
+      "field": "http.status_code",
+      "before": 200,
+      "after": 500,
+      "details": "HTTP status code changed from 200 to 500"
+    },
+    {
+      "type": "modified",
+      "path": "POST /api/v1/checkout/parallel_batch_dispatch/rbac_policy_eval",
+      "nodeId": "call-auth-00007",
+      "field": "duration_ms",
+      "before": 4,
+      "after": 80,
+      "details": "Latency spiked from 4ms to 80ms (>1000% change)"
+    },
+    {
+      "type": "modified",
+      "path": "POST /api/v1/checkout/payment_process/pg_tx_commit/redis_cache_lookup/order_state_transition/stripe_charge_create/rbac_policy_eval/order_state_transition",
+      "nodeId": "state_change-state-00445",
+      "field": "db.rows_affected",
+      "before": 1,
+      "after": 0,
+      "details": "Database rows affected dropped from 1 to 0"
+    },
+    {
+      "type": "modified",
+      "path": "POST /api/v1/checkout/payment_process/pg_tx_commit/metrics_summary_flush/authenticate_request",
+      "nodeId": "span-auth-00355",
+      "field": "auth.valid",
+      "before": true,
+      "after": false,
+      "details": "Authentication validity set to false with authorization_denied"
+    },
+    {
+      "type": "added",
+      "path": "POST /api/v1/checkout/payment_process/s3_upload_payload/order_state_transition/sqs_message_publish/fraud_eval_score/audit_record_written/cache_miss_fallback_handler",
+      "nodeId": "span-fallback-9001",
+      "details": "Added new fallback subtree cache_miss_fallback_handler with 1 child"
+    }
+  ]
+}

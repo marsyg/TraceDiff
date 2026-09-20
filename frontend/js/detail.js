@@ -426,6 +426,26 @@ function renderDetail() {
     }).join("")
     + '</div>';
 
+  // FinOps: show this span's cost impact when it is a top driver.
+  // Matched by span id (either trace side); silently absent otherwise.
+  var finopsHtml = "";
+  if (typeof driverForDiff === "function" && typeof fmtUsd === "function") {
+    var fdrv = driverForDiff(r);
+    if (fdrv) {
+      var f = state.summary && state.summary.finops;
+      var rpm = f && f.requestsPerMonth ? Number(f.requestsPerMonth) : 10000000;
+      var fdc = fdrv.deltaUsd > 0 ? "text-[rgb(var(--ink-semantic))]" : fdrv.deltaUsd < 0 ? "text-[rgb(var(--ink-added))]" : "text-[var(--text-secondary)]";
+      finopsHtml = '<div class="mt-3 border border-edge rounded-lg p-3 bg-surface2">'
+        + '<div class="font-mono text-[10px] uppercase tracking-wider text-[var(--text-muted)] mb-1.5">💸 Cost impact</div>'
+        + '<div class="font-mono text-sm font-bold ' + fdc + '">'
+        + fmtUsd(fdrv.deltaUsd, 6) + ' / req · ' + fmtUsd(fdrv.baselineUsd, 6) + ' → ' + fmtUsd(fdrv.targetUsd, 6)
+        + "</div>"
+        + '<div class="font-mono text-[11px] text-[var(--text-secondary)] mt-1">≈ ' + fmtUsdMonthly(fdrv.deltaUsd * rpm) + ' @ ' + rpm.toLocaleString() + ' reqs/mo</div>'
+        + '<div class="text-[12px] text-[var(--text-secondary)] mt-1.5">' + esc(fdrv.reason || "") + "</div>"
+        + "</div>";
+    }
+  }
+
   // Structured breakdown of field divergences (semantic / uncertain / noise)
   var divergencesHtml = renderDivergences(r.description);
 
@@ -464,7 +484,7 @@ function renderDetail() {
       + '</div>';
   }
 
-  host.innerHTML = head + ruleTag + metaGrid + divergencesHtml + attrs;
+  host.innerHTML = head + ruleTag + metaGrid + finopsHtml + divergencesHtml + attrs;
   // Local toggles (no shared state): noise section and unchanged rows both
   // start collapsed; each re-render resets them to that default.
   host.querySelectorAll("[data-noise-toggle]").forEach(function (t) {

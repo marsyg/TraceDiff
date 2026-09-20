@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { compareTraces } from "../core/compare-traces.js";
+import { diffTraceCosts, type FinOpsDiffResult } from "../finops/costEngine.js";
 import { autoDetect } from "../parsers/index.js";
 import { buildRuleSet, type RuleSetOptions } from "../rules/registry.js";
 import type { ChunkItem } from "./load-traces.js";
@@ -26,6 +27,10 @@ export interface DiffWorkerOutput {
     diffMs: number;
     totalMs: number;
   };
+  /** FinOps cost regression for the full trace pair. Present only for
+   * single-chunk jobs (chunked workers each see full traces, so only one
+   * may report costs without double-counting). */
+  finops?: FinOpsDiffResult;
 }
 
 /**
@@ -36,7 +41,8 @@ export interface DiffWorkerOutput {
  * 3. Applies equivalence rules and computes Merkle subtree hashes.
  * 4. Traverses trees top-down, skipping identical subtrees in O(1).
  * 5. Batch-writes individual divergence records into DynamoDB.
- * 6. Returns statistical metrics to Step Functions.
+ * 6. Computes the FinOps cost regression (single-chunk jobs only) and
+ *    returns statistical metrics to Step Functions.
  */
 export async function handler(input: ChunkItem): Promise<DiffWorkerOutput> {
   const { jobId, traceAKey, traceBKey, rules, config, chunkIndex, totalChunks } = input;
@@ -86,6 +92,18 @@ export async function handler(input: ChunkItem): Promise<DiffWorkerOutput> {
     parseMs,
   });
 
+  // 4b. FinOps cost regression (always on, read-only analytics layer).
+  // O(N) single pass over both trees — noise next to S3/DynamoDB IO, and
+  // never touches diff verdicts or timing attribution. Restricted to
+  // single-chunk jobs: every chunked worker loads the FULL traces from S3,
+  // so reporting per chunk would multiply the true cost by totalChunks.
+  const isSingleChunk = (totalChunks ?? 1) <= 1;
+  const requestsPerMonth =
+    typeof config?.requestsPerMonth === "number" && config.requestsPerMonth > 0
+      ? config.requestsPerMonth
+      : 10_000_000;
+  const finopsResult = isSingleChunk ? diffTraceCosts(traceA, traceB, requestsPerMonth) : undefined;
+
   // 5. Batch-write diff results into DynamoDB (tracediff-results)
   // Each diff record is keyed by (jobId, diffIndex)
   const diffItems = summary.diffs.map((diff, index) => ({
@@ -132,5 +150,6 @@ export async function handler(input: ChunkItem): Promise<DiffWorkerOutput> {
     traceASize: summary.traceASize,
     traceBSize: summary.traceBSize,
     timing: summary.timing,
+    ...(finopsResult !== undefined ? { finops: finopsResult } : {}),
   };
 }

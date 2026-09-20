@@ -1,3 +1,4 @@
+import type { FinOpsDiffResult } from "../finops/costEngine.js";
 import type { DiffWorkerOutput } from "./diff-worker.js";
 
 export interface AggregateInput {
@@ -18,6 +19,9 @@ export interface AggregatedSummary {
   skipPercentage: number;
   traceASize: number;
   traceBSize: number;
+  /** FinOps cost regression, passed through from the reporting chunk.
+   * Absent when no chunk reported one (e.g. multi-chunk jobs). */
+  finops?: FinOpsDiffResult;
   timing: {
     parseMs: number;
     treeBuildMs: number;
@@ -68,6 +72,7 @@ export async function handler(
   let maxTreeBuildMs = 0;
   let maxMerkleBuildMs = 0;
   let totalDiffMs = 0;
+  let finops: FinOpsDiffResult | undefined;
 
   for (const chunk of results) {
     totalDiffs += chunk.diffsFound ?? 0;
@@ -87,6 +92,12 @@ export async function handler(
       maxMerkleBuildMs = Math.max(maxMerkleBuildMs, chunk.timing.merkleBuildMs ?? 0);
       totalDiffMs += chunk.timing.diffMs ?? 0;
     }
+
+    // FinOps is computed per full trace pair, not per chunk — first
+    // reporting chunk wins; costs must never be summed across chunks.
+    if (finops === undefined && chunk.finops !== undefined) {
+      finops = chunk.finops;
+    }
   }
 
   const skipPercentage =
@@ -103,6 +114,7 @@ export async function handler(
     skipPercentage,
     traceASize,
     traceBSize,
+    ...(finops !== undefined ? { finops } : {}),
     timing: {
       parseMs: maxParseMs,
       treeBuildMs: maxTreeBuildMs,

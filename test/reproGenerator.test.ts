@@ -47,7 +47,7 @@ const rpcNodeA: TraceNode = {
   attributes: {
     "rpc.service": "InventoryService",
     "rpc.method": "Reserve",
-    "sku": "SKU-9924-M",
+    sku: "SKU-9924-M",
   },
   children: [],
 };
@@ -100,7 +100,7 @@ describe("generateCurl — HTTP spans", () => {
       attributes: {
         ...httpNodeA.attributes,
         "order.id": "ord-99",
-        "amount": 4999,
+        amount: 4999,
       },
     };
     const diff = makeDiff({ nodeA: nodeWithBody, nodeB: httpNodeB });
@@ -174,7 +174,9 @@ describe("generateVitest — HTTP spans", () => {
   it("generates a file with the correct describe block", () => {
     const diff = makeDiff({});
     const file = generateVitest(diff, httpNodeA, httpNodeB);
-    expect(file).toContain('import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"');
+    expect(file).toContain(
+      'import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"',
+    );
     expect(file).toContain("describe(");
     expect(file).toContain("Regression Repro:");
   });
@@ -237,7 +239,11 @@ describe("generateVitest — RPC spans", () => {
 
 describe("generateVitest — DB spans (non-HTTP, non-RPC fallback)", () => {
   it("generates a mockDb.query test for a DB span", () => {
-    const diff = makeDiff({ nodeA: dbNodeA, nodeB: undefined, description: "db.statement changed" });
+    const diff = makeDiff({
+      nodeA: dbNodeA,
+      nodeB: undefined,
+      description: "db.statement changed",
+    });
     const file = generateVitest(diff, dbNodeA, undefined);
     expect(file).toContain("mockDb");
     expect(file).toContain("query");

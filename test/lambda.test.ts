@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { APIGatewayProxyEvent } from "aws-lambda";
+import { diffTraceCosts } from "../src/finops/costEngine.js";
 import { handler as aggregateHandler } from "../src/lambda/aggregate.js";
 import type { DiffWorkerOutput } from "../src/lambda/diff-worker.js";
 import { handler as diffWorkerHandler } from "../src/lambda/diff-worker.js";
@@ -9,6 +10,7 @@ import { handler as presignHandler } from "../src/lambda/presign.js";
 import { docClient, s3Client, sfnClient } from "../src/lambda/shared.js";
 import { handler as submitJobHandler } from "../src/lambda/submit-job.js";
 import { handler as updateStatusHandler } from "../src/lambda/update-status.js";
+import { node, withDepth } from "./helpers.js";
 
 process.env.AWS_ACCESS_KEY_ID = "testing";
 process.env.AWS_SECRET_ACCESS_KEY = "testing";
@@ -105,6 +107,44 @@ describe("Lambda — aggregate handler", () => {
     expect(result.jobId).toBe("empty-job");
     expect(result.summary.diffsFound).toBe(0);
     expect(result.summary.skipPercentage).toBe(0);
+    expect(result.summary.finops).toBeUndefined();
+  });
+
+  test("passes FinOps through from the reporting chunk without merging", async () => {
+    const finopsA = diffTraceCosts(
+      withDepth(node("root", { duration_ms: 100 })),
+      withDepth(node("root", { duration_ms: 200 })),
+    );
+    const finopsB = diffTraceCosts(
+      withDepth(node("root", { duration_ms: 100 })),
+      withDepth(node("root", { duration_ms: 300 })),
+    );
+    const baseChunk = {
+      chunkIndex: 0,
+      totalChunks: 1,
+      diffsFound: 1,
+      semanticDiffs: 1,
+      noiseDiffs: 0,
+      uncertainDiffs: 0,
+      nodesVisited: 2,
+      nodesSkipped: 0,
+      nodesBulkReported: 0,
+      skipPercentage: 0,
+      traceASize: 2,
+      traceBSize: 2,
+      timing: { parseMs: 1, treeBuildMs: 1, merkleBuildMs: 1, diffMs: 1, totalMs: 4 },
+    };
+
+    // First reporting chunk wins; costs are per-trace-pair, never summed.
+    const result = await aggregateHandler({
+      jobId: "finops-job",
+      workerResults: [
+        { ...baseChunk, finops: finopsA },
+        { ...baseChunk, chunkIndex: 1, finops: finopsB },
+      ],
+    });
+    expect(result.summary.finops?.targetCostUsd).toBe(finopsA.targetCostUsd);
+    expect(result.summary.finops?.requestsPerMonth).toBe(10_000_000);
   });
 });
 
@@ -376,6 +416,87 @@ describe("Lambda — diff-worker handler", () => {
       expect(output.semanticDiffs).toBeGreaterThan(0);
       expect(output.nodesVisited).toBeGreaterThan(0);
       expect(writtenBatches.length).toBeGreaterThan(0);
+    } finally {
+      s3Client.send = origS3Send;
+      docClient.send = origDocSend;
+    }
+  });
+
+  test("includes FinOps cost regression on single-chunk jobs", async () => {
+    const origS3Send = s3Client.send;
+    const origDocSend = docClient.send;
+
+    const traceAStr = await Bun.file("fixtures/small-diff/a.json").text();
+    const traceBStr = await Bun.file("fixtures/small-diff/b.json").text();
+
+    s3Client.send = (async (cmd: { input: { Key: string } }) => {
+      if (cmd.input.Key === "traces/a.json") {
+        return { Body: { transformToString: async () => traceAStr } };
+      }
+      return { Body: { transformToString: async () => traceBStr } };
+    }) as unknown as typeof s3Client.send;
+    docClient.send = (async () => ({})) as unknown as typeof docClient.send;
+
+    try {
+      const output = await diffWorkerHandler({
+        jobId: "worker-finops-job",
+        traceAKey: "traces/a.json",
+        traceBKey: "traces/b.json",
+        chunkIndex: 0,
+        totalChunks: 1,
+      });
+
+      expect(output.finops).toBeDefined();
+      expect(output.finops?.requestsPerMonth).toBe(10_000_000);
+      expect(output.finops?.priceTableVersion.length).toBeGreaterThan(0);
+      // Driver discovery is threshold-gated ($1e-8); the 10-node fixture
+      // may legitimately yield none — driver identification itself is
+      // covered in test/costEngine.test.ts. Here we assert shape.
+      expect(Array.isArray(output.finops?.topCostDrivers)).toBe(true);
+      expect(output.finops?.evalDurationMs).toBeGreaterThanOrEqual(0);
+    } finally {
+      s3Client.send = origS3Send;
+      docClient.send = origDocSend;
+    }
+  });
+
+  test("honors config.requestsPerMonth and skips FinOps on multi-chunk jobs", async () => {
+    const origS3Send = s3Client.send;
+    const origDocSend = docClient.send;
+
+    const traceAStr = await Bun.file("fixtures/small-diff/a.json").text();
+    const traceBStr = await Bun.file("fixtures/small-diff/b.json").text();
+
+    s3Client.send = (async (cmd: { input: { Key: string } }) => {
+      if (cmd.input.Key === "traces/a.json") {
+        return { Body: { transformToString: async () => traceAStr } };
+      }
+      return { Body: { transformToString: async () => traceBStr } };
+    }) as unknown as typeof s3Client.send;
+    docClient.send = (async () => ({})) as unknown as typeof docClient.send;
+
+    try {
+      const custom = await diffWorkerHandler({
+        jobId: "worker-finops-volume",
+        traceAKey: "traces/a.json",
+        traceBKey: "traces/b.json",
+        config: { requestsPerMonth: 500_000 },
+        chunkIndex: 0,
+        totalChunks: 1,
+      });
+      expect(custom.finops?.requestsPerMonth).toBe(500_000);
+
+      // Every chunked worker loads the FULL traces, so per-chunk costs
+      // would multiply the truth — multi-chunk jobs report none.
+      const chunked = await diffWorkerHandler({
+        jobId: "worker-finops-chunked",
+        traceAKey: "traces/a.json",
+        traceBKey: "traces/b.json",
+        chunkIndex: 0,
+        totalChunks: 4,
+      });
+      expect(chunked.finops).toBeUndefined();
+      expect(chunked.diffsFound).toBeGreaterThan(0);
     } finally {
       s3Client.send = origS3Send;
       docClient.send = origDocSend;

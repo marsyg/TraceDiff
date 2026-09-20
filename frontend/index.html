@@ -167,6 +167,22 @@ tailwind.config = { theme: { extend: {
         <div class="font-mono text-[11px] text-[var(--text-muted)]" id="k-time">--</div>
       </div>
     </div>
+    <div id="finops-card" class="hidden mt-4 border border-edge bg-surface2 rounded-xl px-5 py-4">
+      <div class="flex items-end gap-6 flex-wrap">
+        <div>
+          <div class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)]">FinOps cost impact</div>
+          <div class="font-mono text-2xl font-bold mt-1" id="f-delta">--</div>
+          <div class="font-mono text-[11px] text-[var(--text-secondary)] mt-0.5" id="f-monthly">--</div>
+        </div>
+        <div class="pb-1 font-mono text-[11px] text-[var(--text-secondary)]" id="f-top"></div>
+        <div class="ml-auto text-right pb-1 font-mono text-[10px] text-[var(--text-muted)]" id="f-version"></div>
+      </div>
+      <details id="f-remeds-wrap" class="hidden mt-3">
+        <summary class="font-mono text-[11px] text-[var(--text-secondary)] cursor-pointer" id="f-remeds-sum">Prescriptive remediations</summary>
+        <div id="f-remeds" class="mt-2 flex flex-col gap-2"></div>
+      </details>
+      <div class="font-mono text-[10px] text-[var(--text-muted)] mt-3" id="f-disclaimer"></div>
+    </div>
   </section>
 
   <!-- Tree toolbar: search + grouping + significance filter -->

@@ -27,6 +27,52 @@ function breadcrumbs(r) {
   return r.pathB || r.pathA || [];
 }
 
+function fmtUsd(v, digits) {
+  var d = digits == null ? 6 : digits;
+  var n = Number(v);
+  if (!isFinite(n)) return "--";
+  var sign = n > 0 ? "+" : n < 0 ? "-" : "";
+  return sign + "$" + Math.abs(n).toFixed(d);
+}
+function fmtUsdMonthly(v) {
+  var n = Number(v);
+  if (!isFinite(n)) return "--";
+  var sign = n > 0 ? "+" : n < 0 ? "-" : "";
+  return sign + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " / mo";
+}
+function fmtUsdMonthly(v) {
+  var n = Number(v);
+  if (!isFinite(n)) return "--";
+  var sign = n > 0 ? "+" : n < 0 ? "-" : "";
+  return sign + "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " / mo";
+}
+
+// FinOps driver lookup by span id. Drivers are keyed by node id in B for
+// added/modified spans and by node id in A for removed spans, so both
+// sides of a diff row are candidates. Returns undefined when the job
+// carries no FinOps data (old jobs, multi-chunk jobs).
+function finopsDriversById() {
+  var f = state.summary && state.summary.finops;
+  if (!f || !Array.isArray(f.topCostDrivers)) return null;
+  var map = {};
+  f.topCostDrivers.forEach(function (d) {
+    if (d && d.nodeId) map[d.nodeId] = d;
+  });
+  return map;
+}
+function driverForDiff(r) {
+  if (!r) return undefined;
+  var map = finopsDriversById();
+  if (!map) return undefined;
+  var ids = [];
+  if (r.nodeB && r.nodeB.id) ids.push(r.nodeB.id);
+  if (r.nodeA && r.nodeA.id) ids.push(r.nodeA.id);
+  for (var i = 0; i < ids.length; i++) {
+    if (map[ids[i]]) return map[ids[i]];
+  }
+  return undefined;
+}
+
 function renderAll() {
   // FIX (stale view state): a new diff is a new context. Without this, a
   // search string or toggled-off seg chip from the previous run silently
@@ -38,6 +84,7 @@ function renderAll() {
   if (el("group-select")) el("group-select").value = "none";
 
   renderKpis();
+  renderFinops();
   el("tree-toolbar").classList.remove("hidden");
   el("tree-section").classList.remove("hidden");
   paintSegButtons();
@@ -93,6 +140,11 @@ function kpiLoading() {
   el("k-skip-sub").textContent = "computing…";
   el("k-sem").textContent = "…"; el("k-unc").textContent = "…"; el("k-noise").textContent = "…";
   el("k-nodes").textContent = "…"; el("k-time").textContent = "…";
+  el("finops-card").classList.add("hidden");
+  el("f-delta").textContent = "--"; el("f-monthly").textContent = "--";
+  el("f-top").innerHTML = ""; el("f-version").textContent = "";
+  el("f-remeds-wrap").classList.add("hidden"); el("f-remeds").innerHTML = "";
+  el("f-disclaimer").textContent = "";
 }
 function renderKpis() {
   var s = state.summary;
@@ -113,6 +165,50 @@ function renderKpis() {
   el("k-time").textContent = (s.timing && s.timing.totalMs != null ? Number(s.timing.totalMs).toLocaleString() + " ms total" : "--");
   // Identical traces read green, not broken: full skip, zero of everything.
   el("k-skip").className = "font-mono text-4xl font-bold mt-1 " + (sem === 0 ? "text-[rgb(var(--ink-added))]" : "text-[var(--text-primary)]");
+}
+
+// ---- FinOps card + remediations (KPI bar) ---------------------------------
+// Shown only when the job summary carries finops (single-chunk jobs with
+// the worker-side computation). Old/multi-chunk jobs hide the card.
+function renderFinops() {
+  var card = el("finops-card");
+  var f = state.summary && state.summary.finops;
+  if (!f) {
+    card.classList.add("hidden");
+    return;
+  }
+  card.classList.remove("hidden");
+  var deltaEl = el("f-delta");
+  var up = f.deltaUsd > 0;
+  var down = f.deltaUsd < 0;
+  deltaEl.textContent = fmtUsd(f.deltaUsd, 6) + " / req (" + (f.deltaUsd > 0 ? "+" : "") + Number(f.percentageChange).toFixed(1) + "%)";
+  deltaEl.className = "font-mono text-2xl font-bold mt-1 " +
+    (up ? "text-[rgb(var(--ink-semantic))]" : down ? "text-[rgb(var(--ink-added))]" : "text-[var(--text-primary)]");
+  el("f-monthly").textContent = fmtUsdMonthly(f.projectedMonthlyUsd) +
+    " @ " + Number(f.requestsPerMonth).toLocaleString() + " reqs/mo";
+  var top = Array.isArray(f.topCostDrivers) && f.topCostDrivers.length ? f.topCostDrivers[0] : null;
+  el("f-top").innerHTML = top
+    ? 'Top driver: <span class="text-[var(--text-primary)]">' + esc(top.label) + "</span> (" + fmtUsd(top.deltaUsd, 6) + "/req)"
+    : "No cost drivers above threshold";
+  el("f-version").textContent = "Price table: " + (f.priceTableVersion || "n/a");
+  var rems = Array.isArray(f.remediations) ? f.remediations : [];
+  var wrap = el("f-remeds-wrap");
+  if (rems.length === 0) {
+    wrap.classList.add("hidden");
+  } else {
+    wrap.classList.remove("hidden");
+    el("f-remeds-sum").textContent = "Prescriptive remediations (" + rems.length + ")";
+    el("f-remeds").innerHTML = rems.map(function (m) {
+      return '<div class="border border-edge rounded-lg p-3 bg-surface">'
+        + '<div class="font-mono text-[11px] font-bold text-[var(--text-primary)]">' + esc(m.patternName || m.patternId || "remediation") + "</div>"
+        + '<div class="text-[12px] text-[var(--text-secondary)] mt-1">' + esc(m.actionableFix || "") + "</div>"
+        + '<div class="font-mono text-[11px] mt-1.5 text-[var(--text-muted)]">'
+        + esc(m.affectedSpanLabel || "") + " · saves " + fmtUsdMonthly(m.potentialMonthlySavingsUsd || 0)
+        + "</div></div>";
+    }).join("");
+  }
+  el("f-disclaimer").textContent = f.disclaimer || "Estimates from span attributes, not metered billing.";
+  icons();
 }
 
 // ---- Row model ------------------------------------------------------------
@@ -325,13 +421,22 @@ function renderTree() {
     var sizeBadge = ni.total > 1 && dispOwn.length
       ? '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-edge text-[var(--text-secondary)]">covers ' + ni.total + " nodes</span>"
       : "";
+    // FinOps cost-driver tag: matched by span id on either side of the diff.
+    var costTag = "";
+    if (ownIdx >= 0) {
+      var drv = driverForDiff(state.results[ownIdx]);
+      if (drv) {
+        var dc = drv.deltaUsd > 0 ? "text-[rgb(var(--ink-semantic))]" : drv.deltaUsd < 0 ? "text-[rgb(var(--ink-added))]" : "text-[var(--text-secondary)]";
+        costTag = '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-edge ' + dc + '" data-tip="' + esc(drv.reason || "cost driver") + '">💸 ' + fmtUsd(drv.deltaUsd, 6) + "</span>";
+      }
+    }
     var dur = ni.node.attributes && ni.node.attributes.duration_ms != null ? esc(ni.node.attributes.duration_ms) + "ms" : "";
     var extra = st === "uncertain" ? " uncertain-outline" : "";
     html += '<div class="tnode-row flex items-center gap-1.5 pr-2 rounded cursor-pointer' + sel + extra + '" data-key="' + esc(ni.ukey) + '" data-diff="' + ownIdx + '" style="padding-left:' + (6 + depth * 14) + 'px">'
       + caretHtml
       + '<span class="w-2 h-2 rounded-full shrink-0 ' + dot + '"></span>'
       + '<span class="font-mono text-[11px] font-bold text-[var(--text-muted)] w-3 shrink-0">' + stateIcon(st) + "</span>"
-      + '<span class="truncate text-[var(--text-primary)] font-mono text-xs">' + hl(ni.node.label) + "</span>" + pill + sizeBadge
+      + '<span class="truncate text-[var(--text-primary)] font-mono text-xs">' + hl(ni.node.label) + "</span>" + pill + sizeBadge + costTag
       + '<span class="ml-auto text-[10px] text-[var(--text-muted)] shrink-0 pl-2 font-mono">' + esc(ni.node.type) + (dur ? " | " + dur : "") + "</span></div>";
 
     // Only render child nodes and anchored removals when this node is expanded
@@ -342,12 +447,18 @@ function renderTree() {
         if (!matchQuery(rLabel) && !matchQuery(r.description || "")) { hiddenByFilter++; continue; }
         visible++;
         var rSel = removed[ri] === state.selected ? " selected" : "";
-        html += '<div class="tnode-row flex items-center gap-1.5 pr-2 rounded cursor-pointer' + rSel + '" data-diff="' + removed[ri] + '" style="padding-left:' + (6 + (depth + 1) * 14) + 'px">'
+        var rDrv = driverForDiff(r);
+        var rCostTag = "";
+        if (rDrv) {
+          var rdc = rDrv.deltaUsd > 0 ? "text-[rgb(var(--ink-semantic))]" : rDrv.deltaUsd < 0 ? "text-[rgb(var(--ink-added))]" : "text-[var(--text-secondary)]";
+          rCostTag = '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-edge ' + rdc + '" data-tip="' + esc(rDrv.reason || "cost driver") + '">💸 ' + fmtUsd(rDrv.deltaUsd, 6) + "</span>";
+        }
+        html += '<div class="tnode-row flex items-center gap-2 pr-2 rounded cursor-pointer' + rSel + '" data-diff="' + removed[ri] + '" style="padding-left:' + (6 + (depth + 1) * 14) + 'px">'
           + '<span class="w-4 h-4 shrink-0 inline-block"></span>'
           + '<span class="w-2 h-2 rounded-full shrink-0 ' + stateDot("removed") + '"></span>'
           + '<span class="font-mono text-[11px] font-bold text-[var(--text-muted)] w-3 shrink-0">−</span>'
           + '<span class="truncate text-[var(--text-muted)] line-through font-mono text-xs">' + hl(rLabel) + "</span>"
-          + '<span class="state-removed font-mono text-[9px] font-bold px-1.5 py-px">REMOVED</span>'
+          + '<span class="state-removed font-mono text-[9px] font-bold px-1.5 py-px">REMOVED</span>' + rCostTag
           + "</div>";
       }
 

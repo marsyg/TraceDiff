@@ -224,36 +224,37 @@ export function parseCliArgs(argv: string[]): CliArgs {
       continue;
     }
 
-
-  if (arg === "--finops") {
-    result.finops = true;
-    continue;
-  }
-
-  if (arg.startsWith("--requests-per-month=") || arg === "--requests-per-month") {
-    const val = arg.startsWith("--requests-per-month=")
-      ? arg.slice("--requests-per-month=".length)
-      : argv[++i];
-    const num = Number.parseInt(val ?? "", 10);
-    if (Number.isNaN(num) || num < 1) {
-      throw new Error(
-        `Invalid requests-per-month: "${val}". Expected a positive integer (default: 10000000).`,
-      );
+    if (arg === "--finops") {
+      result.finops = true;
+      continue;
     }
-    result.requestsPerMonth = num;
-    continue;
-  }
 
-  if (arg.startsWith("--export-repro=") || arg === "--export-repro") {
-    const val = arg.startsWith("--export-repro=")
-      ? arg.slice("--export-repro=".length)
-      : argv[++i];
-    if (!val) {
-      throw new Error("Missing directory for --export-repro. Example: --export-repro ./repro-out");
+    if (arg.startsWith("--requests-per-month=") || arg === "--requests-per-month") {
+      const val = arg.startsWith("--requests-per-month=")
+        ? arg.slice("--requests-per-month=".length)
+        : argv[++i];
+      const num = Number.parseInt(val ?? "", 10);
+      if (Number.isNaN(num) || num < 1) {
+        throw new Error(
+          `Invalid requests-per-month: "${val}". Expected a positive integer (default: 10000000).`,
+        );
+      }
+      result.requestsPerMonth = num;
+      continue;
     }
-    result.exportReproDir = val;
-    continue;
-  }
+
+    if (arg.startsWith("--export-repro=") || arg === "--export-repro") {
+      const val = arg.startsWith("--export-repro=")
+        ? arg.slice("--export-repro=".length)
+        : argv[++i];
+      if (!val) {
+        throw new Error(
+          "Missing directory for --export-repro. Example: --export-repro ./repro-out",
+        );
+      }
+      result.exportReproDir = val;
+      continue;
+    }
 
     if (arg.startsWith("-")) {
       const hint = suggestFlag(arg);

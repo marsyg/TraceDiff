@@ -146,9 +146,9 @@ export function run(argv: string[] = process.argv.slice(2)): number {
       summary.semantic.forEach((diff, idx) => {
         const n = idx + 1;
         const bundle = exportReproBundle(diff);
-        const shPath   = `${args.exportReproDir}/repro-diff-${n}.sh`;
+        const shPath = `${args.exportReproDir}/repro-diff-${n}.sh`;
         const testPath = `${args.exportReproDir}/repro-diff-${n}.test.ts`;
-        writeFileSync(shPath,   `#!/usr/bin/env bash\n${bundle.curl}\n`, "utf8");
+        writeFileSync(shPath, `#!/usr/bin/env bash\n${bundle.curl}\n`, "utf8");
         writeFileSync(testPath, bundle.vitestFile, "utf8");
         reproPaths.push(shPath, testPath);
       });
@@ -189,7 +189,9 @@ export function run(argv: string[] = process.argv.slice(2)): number {
 
     // Print repro file paths in the summary when --export-repro was used.
     if (reproPaths.length > 0) {
-      process.stdout.write(`\n  ⚡ Repro-Gen: ${reproPaths.length / 2} bundle(s) written to ${args.exportReproDir}\n`);
+      process.stdout.write(
+        `\n  ⚡ Repro-Gen: ${reproPaths.length / 2} bundle(s) written to ${args.exportReproDir}\n`,
+      );
       for (const p of reproPaths) {
         process.stdout.write(`     ${p}\n`);
       }

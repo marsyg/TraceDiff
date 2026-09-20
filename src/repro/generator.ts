@@ -69,24 +69,35 @@ function extractSpanMeta(nodeA?: TraceNode, nodeB?: TraceNode, callerLabel?: str
     return typeof v === "number" ? v : undefined;
   };
 
-  const httpMethod   = strAttr("http.method");
-  const httpRoute    = strAttr("http.route");
-  const httpStatusA  = numAttr(attrsA, "http.status_code");
-  const httpStatusB  = numAttr(attrsB, "http.status_code");
-  const rpcService   = strAttr("rpc.service");
-  const rpcMethod    = strAttr("rpc.method");
-  const dbSystem     = strAttr("db.system");
-  const dbStatement  = strAttr("db.statement") ?? strAttr("db.statement.text");
+  const httpMethod = strAttr("http.method");
+  const httpRoute = strAttr("http.route");
+  const httpStatusA = numAttr(attrsA, "http.status_code");
+  const httpStatusB = numAttr(attrsB, "http.status_code");
+  const rpcService = strAttr("rpc.service");
+  const rpcMethod = strAttr("rpc.method");
+  const dbSystem = strAttr("db.system");
+  const dbStatement = strAttr("db.statement") ?? strAttr("db.statement.text");
 
   const isHttp = !!(httpMethod || httpRoute);
-  const isRpc  = !isHttp && !!(rpcService || rpcMethod);
-  const isDb   = !isHttp && !isRpc && !!(dbSystem || dbStatement);
+  const isRpc = !isHttp && !!(rpcService || rpcMethod);
+  const isDb = !isHttp && !isRpc && !!(dbSystem || dbStatement);
 
   const SKIP_KEYS = new Set([
-    "http.method", "http.route", "http.status_code", "http.url", "http.target",
-    "rpc.service", "rpc.method", "rpc.system",
-    "db.system", "db.statement", "db.statement.text", "db.operation", "db.name",
-    "span.kind", "service.name",
+    "http.method",
+    "http.route",
+    "http.status_code",
+    "http.url",
+    "http.target",
+    "rpc.service",
+    "rpc.method",
+    "rpc.system",
+    "db.system",
+    "db.statement",
+    "db.statement.text",
+    "db.operation",
+    "db.name",
+    "span.kind",
+    "service.name",
   ]);
 
   const requestPayload: Record<string, unknown> = {};
@@ -97,10 +108,18 @@ function extractSpanMeta(nodeA?: TraceNode, nodeB?: TraceNode, callerLabel?: str
   }
 
   return {
-    httpMethod, httpRoute, httpStatusA, httpStatusB,
-    rpcService, rpcMethod, dbSystem, dbStatement,
+    httpMethod,
+    httpRoute,
+    httpStatusA,
+    httpStatusB,
+    rpcService,
+    rpcMethod,
+    dbSystem,
+    dbStatement,
     requestPayload: Object.keys(requestPayload).length > 0 ? requestPayload : undefined,
-    isHttp, isRpc, isDb,
+    isHttp,
+    isRpc,
+    isDb,
     label: nodeA?.label ?? nodeB?.label ?? "unknown-span",
     callerLabel,
   };
@@ -136,8 +155,8 @@ export function generateCurl(_diff: DiffResult, nodeA?: TraceNode, nodeB?: Trace
   const meta = extractSpanMeta(nodeA, nodeB);
 
   if (meta.isHttp || (!meta.isRpc && !meta.isDb)) {
-    const method  = meta.httpMethod ?? "GET";
-    const route   = meta.httpRoute ?? `/${slugify(meta.label)}`;
+    const method = meta.httpMethod ?? "GET";
+    const route = meta.httpRoute ?? `/${slugify(meta.label)}`;
     const baseUrl = `http://localhost:3000${route}`;
     const headers = ['-H "Content-Type: application/json"'];
 
@@ -153,13 +172,13 @@ export function generateCurl(_diff: DiffResult, nodeA?: TraceNode, nodeB?: Trace
 
   if (meta.isRpc) {
     const service = meta.rpcService ?? "UnknownService";
-    const method  = meta.rpcMethod  ?? meta.label;
-    const input   = meta.requestPayload ? JSON.stringify(meta.requestPayload, null, 2) : "{}";
+    const method = meta.rpcMethod ?? meta.label;
+    const input = meta.requestPayload ? JSON.stringify(meta.requestPayload, null, 2) : "{}";
     return `# RPC call -- no HTTP endpoint to curl\n# Service: ${service}\n# Method:  ${method}\n# Input:   ${input.replace(/\n/g, "\n#          ")}`;
   }
 
   // DB span
-  const stmt   = meta.dbStatement ?? `-- query for span: ${meta.label}`;
+  const stmt = meta.dbStatement ?? `-- query for span: ${meta.label}`;
   const system = meta.dbSystem ?? "database";
   return `# ${system.toUpperCase()} query -- no HTTP endpoint to curl\n# ${stmt}`;
 }
@@ -174,12 +193,11 @@ export function generateCurl(_diff: DiffResult, nodeA?: TraceNode, nodeB?: Trace
  *      introduced in trace B detectable without a live environment.
  */
 export function generateVitest(diff: DiffResult, nodeA?: TraceNode, nodeB?: TraceNode): string {
-  const callerLabel = diff.pathA && diff.pathA.length >= 2
-    ? diff.pathA[diff.pathA.length - 2]
-    : undefined;
+  const callerLabel =
+    diff.pathA && diff.pathA.length >= 2 ? diff.pathA[diff.pathA.length - 2] : undefined;
   const meta = extractSpanMeta(nodeA, nodeB, callerLabel);
 
-  const testName   = `Regression Repro: ${diff.description.slice(0, 120)}`;
+  const testName = `Regression Repro: ${diff.description.slice(0, 120)}`;
   const callerMock = meta.callerLabel ? buildCallerMock(meta.callerLabel) : "";
 
   if (meta.isHttp || (!meta.isRpc && !meta.isDb)) {
@@ -199,11 +217,11 @@ export function generateVitest(diff: DiffResult, nodeA?: TraceNode, nodeB?: Trac
  */
 export function exportReproBundle(diff: DiffResult, nodeB?: TraceNode): ReproBundle {
   const nodeA = diff.nodeA;
-  const nB    = nodeB ?? diff.nodeB;
+  const nB = nodeB ?? diff.nodeB;
 
-  const curl      = generateCurl(diff, nodeA, nB);
+  const curl = generateCurl(diff, nodeA, nB);
   const vitestFile = generateVitest(diff, nodeA, nB);
-  const summary   = buildMarkdownSummary(diff, curl);
+  const summary = buildMarkdownSummary(diff, curl);
 
   return { curl, vitestFile, summary };
 }
@@ -211,7 +229,10 @@ export function exportReproBundle(diff: DiffResult, nodeB?: TraceNode): ReproBun
 // --- Private helpers ---------------------------------------------------------
 
 function slugify(label: string): string {
-  return label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 function buildCallerMock(callerLabel: string): string {
@@ -231,16 +252,14 @@ function buildHttpVitestFile(
   callerMock: string,
   diff: DiffResult,
 ): string {
-  const method          = (meta.httpMethod ?? "GET").toLowerCase();
-  const route           = meta.httpRoute ?? `/${slugify(meta.label)}`;
-  const expectedStatus  = meta.httpStatusA ?? 200;
+  const method = (meta.httpMethod ?? "GET").toLowerCase();
+  const route = meta.httpRoute ?? `/${slugify(meta.label)}`;
+  const expectedStatus = meta.httpStatusA ?? 200;
   const regressionStatus = meta.httpStatusB;
-  const payload         = meta.requestPayload ? JSON.stringify(meta.requestPayload) : "{}";
+  const payload = meta.requestPayload ? JSON.stringify(meta.requestPayload) : "{}";
 
   const fetchBody =
-    method === "get" || method === "head"
-      ? ""
-      : `,\n    body: JSON.stringify(${payload}),`;
+    method === "get" || method === "head" ? "" : `,\n    body: JSON.stringify(${payload}),`;
 
   const regressionComment =
     regressionStatus !== undefined && regressionStatus !== expectedStatus
@@ -299,11 +318,9 @@ function buildRpcVitestFile(
   callerMock: string,
   diff: DiffResult,
 ): string {
-  const service   = meta.rpcService ?? "UnknownService";
-  const method    = meta.rpcMethod  ?? meta.label;
-  const inputStr  = meta.requestPayload
-    ? JSON.stringify(meta.requestPayload, null, 4)
-    : "{}";
+  const service = meta.rpcService ?? "UnknownService";
+  const method = meta.rpcMethod ?? meta.label;
+  const inputStr = meta.requestPayload ? JSON.stringify(meta.requestPayload, null, 4) : "{}";
 
   return `/**
  * AUTO-GENERATED by TraceDiff Repro-Gen
@@ -357,7 +374,7 @@ function buildDbVitestFile(
   diff: DiffResult,
 ): string {
   const system = meta.dbSystem ?? "database";
-  const stmt   = meta.dbStatement ?? `-- query for span: ${meta.label}`;
+  const stmt = meta.dbStatement ?? `-- query for span: ${meta.label}`;
 
   return `/**
  * AUTO-GENERATED by TraceDiff Repro-Gen
