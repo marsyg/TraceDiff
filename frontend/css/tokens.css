@@ -1,0 +1,180 @@
+/* TraceDiff design tokens — the system of record for color, type, space,
+   motion, and layout. Components reference tokens, never raw values.
+   If a value you need isn't here, add a token; don't inline a one-off. */
+
+/* Google Fonts — the single allowed CDN host. @import MUST stay the first
+   statement in this file: any rule before it makes the import invalid and
+   the fonts silently fail to load. Load only weights actually used. */
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  color-scheme: dark; /* native scrollbars and form controls render dark */
+
+  /* ---- Surfaces: instrument panel, not marketing dark mode.
+     Separation is --border only — no shadow tokens on purpose. ---- */
+  --bg: #12141a;
+  --surface: #1b1e27;
+  --surface-raised: #22262f; /* hover wells, open branch backgrounds */
+  --border: #2a2d38;
+  --border-strong: #3a3e4c; /* emphasis only: focused inputs, active rules */
+
+  /* ---- Text. Contrast quoted against --bg; secondary also passes
+     on --surface. Muted is decorative/labels only, never body copy. ---- */
+  --text-primary: #e8e6de;   /* ~13.5:1 */
+  --text-secondary: #8b8d98; /* ~5.3:1 — body-copy minimum */
+  --text-muted: #5c5e68;     /* ~2.8:1 — never body copy */
+
+  /* ---- Ink: one saturated color per diff state, each with a RULE.
+     Solid = noise/added/semantic. Outline-only = removed (solid stroke,
+     never fill). Dashed-only = uncertain (never solid). Never a 7th. ---- */
+  --ink-noise: #c9a227;
+  --ink-noise-bg: rgba(201, 162, 39, 0.12);
+  --ink-added: #5fbf7a;
+  --ink-added-bg: rgba(95, 191, 122, 0.12);
+  --ink-removed: #e2703b; /* outline only — never fill */
+  --ink-semantic: #d63f3f; /* loudest in the system; quiet surfaces only */
+  --ink-semantic-bg: rgba(214, 63, 63, 0.12);
+  --ink-uncertain: #8d7fd1; /* dashed stroke only — never solid fill */
+
+  /* ---- Status (pipeline stages, toasts, header dot): aliases of ink,
+     not new hues. A working pipeline is noise-colored, done is added,
+     failed is semantic — operators read one vocabulary everywhere. ---- */
+  --status-working: var(--ink-noise);
+  --status-done: var(--ink-added);
+  --status-error: var(--ink-semantic);
+
+  /* ---- Interactive chrome (not data, so neutral — never an ink hue) ---- */
+  --hover-overlay: rgba(255, 255, 255, 0.04);
+  --selected-bar: var(--text-primary); /* inset branch marker */
+  --focus-ring: var(--text-primary);
+
+  /* ---- Motion. Durations pair with one easing; period tokens own the
+     two looping animations (live dot, spinner) so they stay in sync. ---- */
+  --dur-fast: 150ms;
+  --dur-med: 250ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --pulse-period: 1.1s;
+  --spin-period: 0.8s;
+
+  /* ---- Stacking. Sticky header < toast = tooltip. ---- */
+  --z-sticky: 40;
+  --z-toast: 50;
+  --z-tooltip: 50;
+
+  /* ---- Layout ---- */
+  --max-content: 80rem;
+  --detail-w: 380px;
+  --tree-max-h: 640px;
+  /* Tree indent is deliberately off the 4px grid: depth math
+     (margin-left: base + depth * indent) needs 14px steps to fit
+     caret + dot + icon + label at --text-xs. JS mirrors these values. */
+  --tree-indent: 14px;
+  --tree-base: 6px;
+
+  /* ---- Type ---- */
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-lg: 18px;
+  --text-xl: 28px; /* reserved: skipPercentage hero number only */
+
+  --leading-tight: 1.25; /* headings, pills, badges */
+  --leading-body: 1.5;   /* descriptions, detail copy */
+
+  --weight-regular: 400;
+  --weight-medium: 500; /* semantic state only — nothing else goes medium */
+
+  /* ---- Spacing: 4px base unit. Tree nesting uses --tree-indent above,
+     not this scale. ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* ---- Radius: two values, chosen by element kind. Data surfaces and
+     state badges get --radius; status pills get --radius-pill. ---- */
+  --radius: 2px;
+  --radius-pill: 999px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-body);
+  font-weight: var(--weight-regular);
+}
+
+/* Keyboard access: every interactive element gets the same ring. */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+/* Any element carrying a trace value (hashes, counts, durations, paths,
+   node labels) gets this class — never inherit sans for data. */
+.trace-value {
+  font-family: var(--font-mono);
+}
+
+/* Diff-state utilities. Removed is a solid outline with no fill;
+   uncertain is dashed with no fill — the rule lives in the token
+   comments above, this is just the enforcement. */
+.state-noise {
+  color: var(--ink-noise);
+  background: var(--ink-noise-bg);
+  border-radius: var(--radius);
+}
+.state-added {
+  color: var(--ink-added);
+  background: var(--ink-added-bg);
+  border-radius: var(--radius);
+}
+.state-removed {
+  color: var(--ink-removed);
+  background: transparent;
+  border: 1px solid var(--ink-removed);
+  border-radius: var(--radius);
+}
+.state-semantic {
+  color: var(--ink-semantic);
+  background: var(--ink-semantic-bg);
+  border-radius: var(--radius);
+  font-weight: var(--weight-medium);
+}
+.state-uncertain {
+  color: var(--ink-uncertain);
+  background: transparent;
+  border: 1px dashed var(--ink-uncertain);
+  border-radius: var(--radius);
+}
+
+/* Collapsed unchanged/noise region — the flat-line metaphor, literal. */
+.collapsed-region {
+  border-top: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  padding: var(--space-1) 0;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* Icon-only controls (row carets): keep them in the a11y tree. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

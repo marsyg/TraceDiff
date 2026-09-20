@@ -78,9 +78,9 @@ function paintSegButtons() {
     var on = !!state.showSig[sig];
     b.setAttribute("aria-pressed", String(on));
     var base = "seg-btn font-mono text-[11px] px-3 py-1.5 rounded-md border ";
-    var color = sig === "semantic" ? "border-orange-700 text-orange-400"
-      : sig === "uncertain" ? "border-purple-700 text-purple-400"
-      : "border-amber-800 text-amber-500";
+    var color = sig === "semantic" ? "border-[var(--ink-semantic)] text-[var(--ink-semantic)]"
+      : sig === "uncertain" ? "border-dashed border-[var(--ink-uncertain)] text-[var(--ink-uncertain)]"
+      : "border-[var(--ink-noise)] text-[var(--ink-noise)]";
     b.className = base + color;
     b.textContent = (sig === "semantic" ? "~ " : sig === "uncertain" ? "? " : "≈ ") + sig + " (" + counts[sig] + ")";
   });
@@ -112,7 +112,7 @@ function renderKpis() {
   el("k-nodes").textContent = aSize + " → " + bSize + " nodes";
   el("k-time").textContent = (s.timing && s.timing.totalMs != null ? Number(s.timing.totalMs).toLocaleString() + " ms total" : "--");
   // Identical traces read green, not broken: full skip, zero of everything.
-  el("k-skip").className = "font-mono text-4xl font-bold mt-1 " + (sem === 0 ? "text-emerald-400" : "text-zinc-100");
+  el("k-skip").className = "font-mono text-4xl font-bold mt-1 " + (sem === 0 ? "text-[var(--ink-added)]" : "text-[var(--text-primary)]");
 }
 
 // ---- Row model ------------------------------------------------------------
@@ -197,14 +197,14 @@ function expandAll() { setAllCollapsed(false); }
 function collapseAll() { setAllCollapsed(true); }
 
 function stateDot(st) {
-  if (st === "added") return "bg-emerald-500 glow-emerald";
-  if (st === "removed") return "bg-rose-500 glow-rose";
-  if (st === "semantic") return "bg-orange-500 pulse-red";
-  if (st === "uncertain") return "border border-dashed border-purple-400";
-  if (st === "noise") return "bg-amber-500 glow-amber";
-  if (st === "below-sem") return "bg-orange-500";
-  if (st === "below-noise") return "bg-amber-500";
-  return "bg-zinc-700";
+  if (st === "added") return "bg-[var(--ink-added)] glow-emerald";
+  if (st === "removed") return "border border-[var(--ink-removed)]";
+  if (st === "semantic") return "bg-[var(--ink-semantic)] glow-rose";
+  if (st === "uncertain") return "border border-dashed border-[var(--ink-uncertain)]";
+  if (st === "noise") return "bg-[var(--ink-noise)] glow-amber";
+  if (st === "below-sem") return "bg-[var(--ink-semantic)]";
+  if (st === "below-noise") return "bg-[var(--ink-noise)]";
+  return "bg-[var(--text-muted)]";
 }
 function stateIcon(st) {
   if (st === "added") return "+";
@@ -226,7 +226,7 @@ function hl(text) {
 function renderTree() {
   var host = el("tree");
   if (!state.treeB) {
-    host.innerHTML = '<div class="p-8 text-center font-mono text-xs text-zinc-600">Run a diff to visualize the unified tree.</div>';
+    host.innerHTML = '<div class="p-8 text-center font-mono text-xs text-[var(--text-muted)]">Run a diff to visualize the unified tree.</div>';
     return;
   }
   var info = annotate(state.treeB, [state.treeB.label], "0", {});
@@ -299,14 +299,14 @@ function renderTree() {
       var label = st === "noise"
         ? "≈ " + (ni.total - 1) + " noise-only spans — judged safe, click to expand"
         : "⌄ " + (ni.total - 1) + " unchanged spans — Merkle-skipped, click to expand";
-      html += '<div class="tnode-row collapsed-row flex items-center gap-2 rounded cursor-pointer px-3 py-1.5 my-0.5 font-mono text-[11px] text-zinc-500" data-key="' + esc(ni.ukey) + '" data-act="toggle" style="margin-left:' + (6 + depth * 14) + 'px">'
+      html += '<div class="tnode-row collapsed-row flex items-center gap-2 rounded cursor-pointer px-3 py-1.5 my-0.5 font-mono text-[11px] text-[var(--text-secondary)]" data-key="' + esc(ni.ukey) + '" data-act="toggle" style="margin-left:' + (6 + depth * 14) + 'px">'
         + esc(label) + "</div>";
       return;
     }
 
     var caretHtml = "";
     if (hasKids) {
-      caretHtml = '<button type="button" class="caret-btn w-4 h-4 flex items-center justify-center text-zinc-400 hover:text-zinc-100 cursor-pointer select-none text-[11px] shrink-0 transition-transform rounded hover:bg-zinc-800/80" data-key="' + esc(ni.ukey) + '" data-act="toggle-caret" title="' + (open ? 'Collapse branch' : 'Expand branch') + '">'
+      caretHtml = '<button type="button" class="caret-btn w-4 h-4 cursor-pointer select-none text-[11px] shrink-0" data-key="' + esc(ni.ukey) + '" data-act="toggle-caret" title="' + (open ? 'Collapse branch' : 'Expand branch') + '">'
         + (open ? '▾' : '▸')
         + '</button>';
     } else {
@@ -317,22 +317,22 @@ function renderTree() {
     var sel = dispOwn.indexOf(state.selected) >= 0 ? " selected" : "";
     var dot = stateDot(st);
     var pill = "";
-    if (st === "added") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-emerald-500/15 border border-emerald-500 text-emerald-400">ADDED</span>';
-    else if (st === "removed") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-rose-500/15 border border-rose-500 text-rose-400">REMOVED</span>';
-    else if (st === "semantic") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-orange-500/15 border border-orange-500 text-orange-400">SEMANTIC</span>';
-    else if (st === "uncertain") pill = '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-purple-500/10 border border-dashed border-purple-400 text-purple-300">UNCERTAIN</span>';
-    else if (st === "noise") pill = '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-amber-700 text-amber-500">NOISE</span>';
+    if (st === "added") pill = '<span class="state-added font-mono text-[9px] font-bold px-1.5 py-px">ADDED</span>';
+    else if (st === "removed") pill = '<span class="state-removed font-mono text-[9px] font-bold px-1.5 py-px">REMOVED</span>';
+    else if (st === "semantic") pill = '<span class="state-semantic font-mono text-[9px] font-bold px-1.5 py-px">SEMANTIC</span>';
+    else if (st === "uncertain") pill = '<span class="state-uncertain font-mono text-[9px] font-bold px-1.5 py-px">UNCERTAIN</span>';
+    else if (st === "noise") pill = '<span class="state-noise font-mono text-[9px] px-1.5 py-px">NOISE</span>';
     var sizeBadge = ni.total > 1 && dispOwn.length
-      ? '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-edge text-zinc-500">covers ' + ni.total + " nodes</span>"
+      ? '<span class="font-mono text-[9px] px-1.5 py-px rounded-full border border-edge text-[var(--text-secondary)]">covers ' + ni.total + " nodes</span>"
       : "";
     var dur = ni.node.attributes && ni.node.attributes.duration_ms != null ? esc(ni.node.attributes.duration_ms) + "ms" : "";
     var extra = st === "uncertain" ? " uncertain-outline" : "";
     html += '<div class="tnode-row flex items-center gap-1.5 pr-2 rounded cursor-pointer' + sel + extra + '" data-key="' + esc(ni.ukey) + '" data-diff="' + ownIdx + '" style="padding-left:' + (6 + depth * 14) + 'px">'
       + caretHtml
       + '<span class="w-2 h-2 rounded-full shrink-0 ' + dot + '"></span>'
-      + '<span class="font-mono text-[11px] font-bold text-zinc-600 w-3 shrink-0">' + stateIcon(st) + "</span>"
-      + '<span class="truncate text-zinc-200 font-mono text-xs">' + hl(ni.node.label) + "</span>" + pill + sizeBadge
-      + '<span class="ml-auto text-[10px] text-zinc-600 shrink-0 pl-2 font-mono">' + esc(ni.node.type) + (dur ? " | " + dur : "") + "</span></div>";
+      + '<span class="font-mono text-[11px] font-bold text-[var(--text-muted)] w-3 shrink-0">' + stateIcon(st) + "</span>"
+      + '<span class="truncate text-[var(--text-primary)] font-mono text-xs">' + hl(ni.node.label) + "</span>" + pill + sizeBadge
+      + '<span class="ml-auto text-[10px] text-[var(--text-muted)] shrink-0 pl-2 font-mono">' + esc(ni.node.type) + (dur ? " | " + dur : "") + "</span></div>";
 
     // Only render child nodes and anchored removals when this node is expanded
     if (open) {
@@ -345,9 +345,9 @@ function renderTree() {
         html += '<div class="tnode-row flex items-center gap-1.5 pr-2 rounded cursor-pointer' + rSel + '" data-diff="' + removed[ri] + '" style="padding-left:' + (6 + (depth + 1) * 14) + 'px">'
           + '<span class="w-4 h-4 shrink-0 inline-block"></span>'
           + '<span class="w-2 h-2 rounded-full shrink-0 ' + stateDot("removed") + '"></span>'
-          + '<span class="font-mono text-[11px] font-bold text-zinc-600 w-3 shrink-0">−</span>'
-          + '<span class="truncate text-zinc-400 line-through font-mono text-xs">' + hl(rLabel) + "</span>"
-          + '<span class="font-mono text-[9px] font-bold px-1.5 py-px rounded-full bg-rose-500/15 border border-rose-500 text-rose-400">REMOVED</span>'
+          + '<span class="font-mono text-[11px] font-bold text-[var(--text-muted)] w-3 shrink-0">−</span>'
+          + '<span class="truncate text-[var(--text-muted)] line-through font-mono text-xs">' + hl(rLabel) + "</span>"
+          + '<span class="state-removed font-mono text-[9px] font-bold px-1.5 py-px">REMOVED</span>'
           + "</div>";
       }
 
@@ -357,7 +357,7 @@ function renderTree() {
         var gk = groupKeyFor(ni.kids[ci].node.label, ni.kids[ci].node.type);
         if (gk && gk !== lastGroup) {
           lastGroup = gk;
-          html += '<div class="font-mono text-[10px] uppercase tracking-widest text-zinc-600 px-3 pt-2" style="margin-left:' + (6 + (depth + 1) * 14) + 'px">' + esc(gk) + "</div>";
+          html += '<div class="font-mono text-[10px] uppercase tracking-widest text-[var(--text-muted)] px-3 pt-2" style="margin-left:' + (6 + (depth + 1) * 14) + 'px">' + esc(gk) + "</div>";
         }
         emit(ni.kids[ci], depth + 1);
       }
@@ -366,7 +366,7 @@ function renderTree() {
 
   emit(info, 0);
   el("tree-count").textContent = visible.toLocaleString() + " rows" + (hiddenByFilter ? " · " + hiddenByFilter + " filtered" : "");
-  host.innerHTML = html || '<div class="p-8 text-center font-mono text-xs text-zinc-600">No rows match the current filter.</div>';
+  host.innerHTML = html || '<div class="p-8 text-center font-mono text-xs text-[var(--text-muted)]">No rows match the current filter.</div>';
   host.querySelectorAll(".tnode-row").forEach(function (row) {
     row.addEventListener("click", function (e) {
       var caret = e.target.closest('[data-act="toggle-caret"]');
