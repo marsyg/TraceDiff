@@ -158,25 +158,30 @@ Add this to your **workspace** `.vscode/settings.json` (already committed in the
 tracediff/
 ├── src/
 │   ├── core/               # Merkle builder, diff engine, matcher, hash, types
-│   ├── rules/              # Equivalence rules registry + 5 built-in + Bedrock LLM rule
+│   ├── rules/              # Equivalence-rule registry + 5 built-in rules
 │   ├── parsers/            # Input parsers: nested JSON, flat spans, OTel
-│   ├── cli/                # CLI entry point + terminal/JSON output formatters
-│   ├── viz/                # Self-contained HTML visualization template
+│   ├── cli/                # CLI entry point + terminal/JSON/HTML output formatters
+│   ├── viz/                # Reserved for visualization work (HTML report lives in src/cli/format-html.ts)
 │   ├── lambda/             # AWS Lambda handlers (submit-job, get-job, diff-worker…)
 │   └── bench/              # Synthetic trace generator + benchmark runner
-├── test/                   # Unit + integration tests (bun test)
+├── test/                   # Unit + integration tests incl. lambda handlers (bun test)
+│   └── setup.ts            # Test preload: conditional AWS-SDK mocks (see Tests)
+├── frontend/               # Single-file web app (unified diff tree + KPI bar + detail panel)
 ├── fixtures/               # Sample traces for tests and local demo
+├── docs/                   # Jekyll docs site (performance notes, hash experiment, engineering log)
 ├── infra/
 │   ├── template.yaml       # SAM/CloudFormation — all AWS resources
 │   └── deploy.sh           # One-command: bun build → sam build → sam deploy
 ├── dist/lambda/            # Bundled Lambda handlers (git-ignored, built by bun run build)
 ├── .vscode/
 │   └── settings.json       # Biome format-on-save for the whole team
+├── ARCHITECTURE.md         # Visual guide: how the engine works, with diagrams
 ├── package.json
 ├── tsconfig.json           # strict, esnext, moduleResolution: bundler (Bun-compatible)
-├── bunfig.toml             # Bun test config (coverage enabled)
+├── bunfig.toml             # Bun test config (coverage enabled + test preload)
 ├── biome.json              # Lint + format rules (single source of truth)
 ├── .editorconfig           # Line endings + indent baseline for all editors
+├── .gitattributes          # Enforce LF line endings (Biome requires LF)
 └── .gitignore
 ```
 
@@ -233,13 +238,20 @@ Output per run: `trace_a.json`, `trace_b.json`, `expected_diffs.json` (ground tr
 ## Tests
 
 ```bash
-bun test                         # Run all tests
-bun test test/merkle.test.ts     # Run a single file
+bun test                         # Run all tests (unit + lambda handlers)
+bun test test/diff.test.ts       # Run a single file
 bun test --coverage              # With coverage report
 bun test --watch                 # Re-run on file change
 ```
 
-Test files: `test/`. Integration tests use fixtures from `fixtures/`.
+Test files live in `test/`; integration tests use fixtures from `fixtures/`.
+`test/setup.ts` (wired via `bunfig.toml` preload) registers faithful AWS-SDK
+fakes, but only when the real SDK can't be resolved (Bun + pnpm symlinks on
+Windows) — healthy platforms test against the real modules.
+
+> Bun auto-loads a repo-root `.env` if present. Keep AWS keys out of git
+> (`.env` is git-ignored); note that a deployment `.env` changes which
+> branches lambda handlers take under test.
 
 ---
 
@@ -307,7 +319,7 @@ The deploy script:
 ```
 main          ← stable, always deployable
 ├── core      ← Maaz:    src/core/, src/rules/, src/parsers/
-├── aws       ← Divyansh: src/lambda/, infra/, src/rules/semantic-llm.ts
+├── aws       ← Divyansh: src/lambda/, infra/
 └── frontend  ← Lavanya:  frontend/, src/viz/, src/bench/generate.ts
 ```
 
@@ -317,7 +329,7 @@ Merge to `main` at each phase milestone checkpoint.
 
 | Cause | Prevention |
 |-------|-----------|
-| CRLF vs LF line endings | `.editorconfig` enforces `end_of_line = lf` |
+| CRLF vs LF line endings | `.gitattributes` forces `eol=lf` (Biome rejects CRLF) |
 | Inconsistent quotes / indentation | Biome enforces on save — never reformat manually |
 | Both editing `package.json` | One person owns scripts at a time |
 | Both editing `src/core/types.ts` | Freeze after Phase 1 — it's the shared contract |
@@ -327,32 +339,46 @@ Merge to `main` at each phase milestone checkpoint.
 
 ## How It Works
 
+> Visual version with diagrams: [`ARCHITECTURE.md`](ARCHITECTURE.md) — read it before you demo, explain, or change the engine.
+
 ### 1. Normalize
-Each node passes through rules in priority order:
+Each node passes through the active rules (single fused pass; custom rules fall back to sequential application):
 
 | Rule | What it does |
 |------|-------------|
-| `ignore-timestamps` | Strip timestamp, start_time, end_time fields |
-| `canonicalize-ids` | Replace UUID/hex values with `__ID_N__` |
-| `numeric-tolerance` | Bucket numbers within 5% jitter |
-| `sort-concurrent` | Sort children of parallel spans by type::label |
-| `semantic-llm` | Amazon Bedrock judges free-text log equivalence |
+| `ignore-timestamps` | Normalize timestamp fields — numeric and string-encoded (`timestamp_raw`, `db.timestamp_iso`); `time_zone` / `date_of_birth` stay semantic |
+| `canonicalize-ids` | Replace UUID/hex ID values with a fixed `__TRACEDIFF_ID__` sentinel |
+| `numeric-tolerance` | Bucket numbers within 5% jitter (exact comparison deferred to classify) |
+| `sort-concurrent` | Sort children of parallel spans (by label, then id) before hashing |
+| `ignore-fields` | Drop user-specified attribute keys (`--ignore-fields`) |
 
 ### 2. Build Merkle Tree
+Two fingerprints per node — this is what separates "identical" from "same after rules":
+
 ```
-h(leaf) = SHA-256(normalize(content))
-h(node) = SHA-256(normalize(content) ‖ h(child_1) ‖ h(child_2) ‖ …)
+norm(node) = SHA-256(normalize(content) ‖ norm(child_1) ‖ …)
+raw(node)  = SHA-256(raw content       ‖ raw(child_1)  ‖ …)
 ```
-If `h(A) == h(B)`, the entire subtree is identical — skip in O(1).
+
+- `norm` differs → **diverges**: a real difference, keep walking
+- `norm` matches, `raw` differs → **noise**: something changed, a rule vouched for it — skip with a note
+- Both match → **identical**: skip silently
+
+Either way, a hash match skips the whole subtree in O(1).
 
 ### 3. Diff Walk
 Top-down DFS with an explicit stack (no recursion → no stack overflow at 100K depth):
-- Hash match → skip entire subtree
-- Otherwise → 4-phase children matching (hash → signature → position → residuals)
-- Recurse only into mismatched children
+- Hash match → skip entire subtree (`nodesSkipped`)
+- Otherwise → 2-pass children matching (exact hash buckets, then same-label pairing to avoid false add/remove pairs)
+- Removed / depth-capped subtrees are reported whole (`nodesBulkReported`, never counted as skips)
+- Recurse only into genuinely diverged children
+
+Invariant: `traceASize == nodesVisited + nodesSkipped + nodesBulkReported`.
+`skipPercentage` counts only genuine Merkle skips.
 
 ### 4. Classify
 Each raw diff goes through `rule.classify()` → `semantic | noise | uncertain`.
+Multiple changed fields on one node collapse into a single diff with worst-wins significance.
 
 ### Complexity
 
@@ -367,7 +393,7 @@ Each raw diff goes through `rule.classify()` → `semantic | noise | uncertain`.
 ## AWS Architecture
 
 ```
-Frontend (Amplify Hosting)
+Frontend (S3 static hosting + CloudFront)
     │ HTTP
     ▼
 API Gateway
@@ -378,11 +404,30 @@ API Gateway
  │                                            └─ DynamoDB (write results)
  └── GET  /jobs/{id}   → Lambda: get-job → DynamoDB
 
-S3          — trace uploads + Merkle cache
-DynamoDB    — jobs table + results table  
-Bedrock     — Claude Haiku for semantic-llm rule
-Amplify     — static frontend hosting (auto-deploy from GitHub)
+S3          — trace uploads + static frontend hosting
+CloudFront  — CDN in front of the frontend bucket (invalidated on deploy)
+DynamoDB    — jobs table + results table
 ```
+
+### Frontend
+
+`frontend/` is a single-file app (`index.html`, Tailwind CDN + vanilla JS, no build step —
+`aws s3 sync` deploys it as-is). One unified diff tree rooted at the common root,
+colored per node state (unchanged / noise / added / removed / semantic / uncertain);
+unchanged and noise subtrees render collapsed GitHub-diff style. KPI bar leads with
+skip %, then semantic/uncertain/noise badges, sizes, and timing; clicking any row
+opens the detail panel (description, side-by-side attributes, `classifiedBy` rule tag).
+
+```bash
+# Point it at any backend without redeploying
+https://<your-cloudfront-host>/?api=https://<api-gateway-host>/dev
+```
+
+It includes a 1-click benchmark demo (deterministic ~1K-span checkout pair with
+5 injected regressions), trace upload with format auto-detect, rule toggles with
+tolerance/ignore-fields inputs, search + group-by + significance filters, and a
+live Step Functions pipeline view. Every value comes from the backend or your
+files — no mock diff data.
 
 ---
 
